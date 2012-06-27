@@ -54,12 +54,16 @@ import subprocess
 IDENTITIESJSONFILE="identities.json"
 DATADIR='./data/'
 SCORE_THRESHOLD=90
-#START_DATE=datetime.date(2009,2,24)
 LINKSFILE="mmm.json"
 MATCHESFILE="matches.json"
 CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
+
+# for shorter runtime, if we only care about documents published since start of k18
+# dd/mm/YYYY
+START_DATE="24/02/2009"
+#START_DATE=None
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -142,9 +146,7 @@ def find_committee_slugs(datadict):
 	for k in set(commitees):
 		logger.info("commitee: %s " % k)
 
-# for shorter runtime, if we only care about documents published since start of k18
-#START_DATE="24/02/2009"
-START_DATE=None
+
 def main():
 	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
 	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
@@ -168,14 +170,15 @@ def main():
 
 	if START_DATE :
 		datadict={k:v for (k,v) in datadict.iteritems() if asciiDateToDate(v['date']) >= asciiDateToDate(START_DATE)}
-		logging.info("%d documents were published after %s, and will be processed" % (len(datadict),START_DATE))
+		logging.info("START_DATE set, only %d documents published after %s will be processed." % (len(datadict),START_DATE))
+
 
 
 	# retrieve each missing file from the net if needed
 	# convert each file to text
 	# filter the lines to find thos with the magic pattern
 	# save all such lines in d['candidates']
-	for (k,d) in datadict.iteritems():
+	for (k,d) in  sorted(datadict.iteritems()):
 		basename=d['url'].split("/")[-1]
 
 		fullpath=os.path.join(DATADIR,basename)
