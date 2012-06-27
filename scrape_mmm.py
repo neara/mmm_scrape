@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 #
 # Best-effort scraper for mmm documents from http://knesset.gov.il/mmm/heb/MMM_Results.asp
-# retrieves all files to to local cache, convertes them to text and crudely tries to
-# identify the mks referenced as the person who requested the document
+# retrieves all files to to local cache, converts them to text and crudely tries to
+# identify the identities (mks, commitees) referenced as the solicitor of the report.
 #
 # deps: runs on linux, pdftotext must be installed, and the python packages bs4
 #       and fuzzywuzzy (https://github.com/seatgeek/fuzzywuzzy)
@@ -14,7 +14,7 @@
 #   goes in MATCHESFILE
 # - a count of docments per mk is dumped in csv form into CSVFILE
 #
-# the documents go back to 2000, but hte mks.json file only holds
+# the documents go back to 2000, but hte identities.json file only holds
 # mks from the 18th knesset right now.
 #
 # BSD.
@@ -52,13 +52,14 @@ import subprocess
 
 
 REG_TOKEN = re.compile("[\w\d]+")
-MKSJSONFILE="mks.json"
+IDENTITIESJSONFILE="identities.json"
 DATADIR='./data/'
 SCORE_THRESHOLD=90
 #START_DATE=datetime.date(2009,2,24)
 LINKSFILE="mmm.json"
 MATCHESFILE="matches.json"
 CSVFILE="counts.csv"
+COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -69,14 +70,14 @@ logging.basicConfig(level=logging.INFO,
 
 logger=logging.getLogger("mmm-scrape")
 
-# MKSJSONFILE should contain mappings from names
+# IDENTITIESJSONFILE should contain mappings from names
 # to ids (the included file maps names to mk  ids as they appear on oknesset.org)
 #
 # can't hide the global inside a class
 # because multiprocessing.Map chokes when given a method
 # instead of a function
 
-with open(MKSJSONFILE,"rb") as jsonfile:
+with open(IDENTITIESJSONFILE,"rb") as jsonfile:
 	mks=json.load(jsonfile)
 
 
@@ -86,10 +87,12 @@ def	score(d):
 	results=[]
 	for heading in d['candidates']:
 		results.append( [{'url' : d['url'],
-						  'score' :0 if len(heading)<6 else fuzz.partial_ratio(mkname,heading),
-						  'mkname': mkname,
+		                  'title' : d['title'],
+		                  'date' : d['date'],
+						  'score' :0 if len(heading)<6 else fuzz.partial_ratio(entityName,heading),
+						  'entityName': entityName,
 						  'id':id,
-						  'heading' : heading}	for (mkname,id) in mks])
+						  'heading' : heading}	for (entityName,id) in mks])
 
 	return results
 
@@ -114,7 +117,7 @@ def scrape(url):
 		sys.exit(1)
 
 	data=zip(d_titles,d_links,d_date,d_author)
-	data=[{'title':d[0],'url':d[1],'date':d[2],'author':d[3]} for d in data]
+	data=[{'title':d[0],'url':d[1],'date':d[2]} for d in data]
 
 	return data
 
@@ -126,10 +129,22 @@ def asciiDateToDate(x):
 	datel.reverse()
 	return apply(datetime.date,map(int,datel))
 
+# hopefully, the first word in the name of the committee
+# is a unique identifier. This will rear it's ugly head someday
+def find_committee_slugs(datadict):
+	commitees=[]
+	for (k,v) in datadict.iteritems():
+		for c in v['candidates']:
+			m=re.search(u"ועדת\s*[^\s,\(\)\\.]+",c)
+			if m:
+				commitees.append(m.group(0))
+
+	logger.info("%d unique commitees found, %d total occurences",len(set(commitees)),len(commitees) )
+	for k in set(commitees):
+		logger.info("commitee: %s " % k)
 
 # for shorter runtime, if we only care about documents published since start of k18
 #START_DATE="24/02/2009"
-
 START_DATE=None
 def main():
 	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
@@ -180,7 +195,10 @@ def main():
 		pat=filter(lambda x: re.search(u"מסמך\s+זה",x),lines)
 		datadict[k]['candidates']=pat
 
-	logger.info("Scoring candidates..." )
+
+	#find_committee_slugs(datadict)
+
+	logger.info("Scoring %d documents " % len(datadict))
 	# use all cores to do the scoring, this is O(no. of mks * number of lines with magic pattern)
 	# can take a little while.
 	p=multiprocessing.Pool(multiprocessing.cpu_count())
@@ -196,7 +214,11 @@ def main():
 			if (c['score'] > SCORE_THRESHOLD):
 				keepers.append(c)
 
-	logger.info("Located %d matches to mks with score > %d "%(len(keepers),SCORE_THRESHOLD))
+
+	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
+	            (len(keepers), SCORE_THRESHOLD,
+	             len([x for x in keepers if int(x['id']) < COMMITTE_ID_BASE]),
+	             len([x for x in keepers if int(x['id']) >= COMMITTE_ID_BASE])))
 
 	# dump the good matches to MATCHESFILE
  	with codecs.open(MATCHESFILE,"wb",encoding='utf-8') as f:
@@ -213,7 +235,7 @@ def main():
 
 	# build a table which holds the number of documents associated with each name
 	logger.info("Preparing rankings")
-	cnt= list(Counter ([x['mkname'] for x in matches]).iteritems())
+	cnt= list(Counter ([x['entityName'] for x in matches]).iteritems())
 	cnt.sort(key=lambda x:x[1])
 
 	# output an excel-compatible CSV of ranking
