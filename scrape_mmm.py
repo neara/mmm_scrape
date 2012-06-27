@@ -59,6 +59,7 @@ LINKSFILE="mmm.json"
 MATCHESFILE="matches.json"
 CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
+NOMATCHESFILE="no_match.json"
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -157,7 +158,7 @@ def main():
 			data=json.load(f)
 
 	# convert to dict keyed by URL
-	datadict={d['url']:d for d in data}
+	datadict={d['url']:d for d in data[:]}
 
 	keys=[x['url'] for x in data]+datadict.keys()
 	cnt=Counter(keys)
@@ -204,26 +205,32 @@ def main():
 	scores=reduce(lambda x,y:x+y,scores)
 
 
-	keepers=[]
+	matches=[]
 	for v in scores:
 		# keep all high enough scores
 		best=[ e for e in v if e['score'] > SCORE_THRESHOLD]
 		for c in best:
 			if (c['score'] > SCORE_THRESHOLD):
-				keepers.append(c)
+				matches.append(c)
 
 
 	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
-	            (len(keepers), SCORE_THRESHOLD,
-	             len([x for x in keepers if int(x['id']) < COMMITTE_ID_BASE]),
-	             len([x for x in keepers if int(x['id']) >= COMMITTE_ID_BASE])))
+	            (len(matches), SCORE_THRESHOLD,
+	             len([x for x in matches if int(x['id']) < COMMITTE_ID_BASE]),
+	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
 
 	# dump the good matches to MATCHESFILE
  	with codecs.open(MATCHESFILE,"wb",encoding='utf-8') as f:
-		json.dump(keepers,f)
+		json.dump(matches,f)
 		logger.info("saved matches as json in %s",MATCHESFILE)
 
-	del keepers
+	# save data of orphan documents separately, for forensics.
+	not_matched={x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
+	not_matched=[x for x in datadict.values() if x['url'] in not_matched ]
+	with codecs.open(NOMATCHESFILE,"wb",encoding='utf-8') as f:
+		json.dump(not_matched,f)
+		logger.info("saved details of documents with no matches as json in %s",NOMATCHESFILE)
+
 
 	# <-> short-circuit here to skip previous stages
 
