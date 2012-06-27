@@ -51,7 +51,6 @@ import logging
 import subprocess
 
 
-REG_TOKEN = re.compile("[\w\d]+")
 IDENTITIESJSONFILE="identities.json"
 DATADIR='./data/'
 SCORE_THRESHOLD=90
@@ -79,7 +78,6 @@ logger=logging.getLogger("mmm-scrape")
 
 with open(IDENTITIESJSONFILE,"rb") as jsonfile:
 	mks=json.load(jsonfile)
-
 
 def	score(d):
 	""" fuzzy match between all the records in mks """
