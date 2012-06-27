@@ -14,10 +14,6 @@
 #   goes in MATCHESFILE
 # - a count of docments per mk is dumped in csv form into CSVFILE
 #
-# 25/6/12: there are 3086 links, 127 of which appear more then once,
-# after distincting, we have 2956 documents, out of which 517 have a
-# match with score > SCORE_THRESHOLD.
-#
 # the documents go back to 2000, but hte mks.json file only holds
 # mks from the 18th knesset right now.
 #
@@ -122,11 +118,26 @@ def scrape(url):
 
 	return data
 
+def asciiDateToDate(x):
+	"""
+	parse date of the form "dd/mm/YYYY"
+	"""
+	datel=x.split("/")
+	datel.reverse()
+	return apply(datetime.date,map(int,datel))
+
+
+# for shorter runtime, if we only care about documents published since start of k18
+#START_DATE="24/02/2009"
+
+START_DATE=None
 def main():
 	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
 	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
 		json.dump(data,f)
 		logger.info("saved data on documents as json in %s",LINKSFILE)
+
+	# <-> short-circuit here to skip previous stages
 
 	# load back the data
 	with codecs.open(LINKSFILE,encoding='utf-8') as f:
@@ -141,12 +152,18 @@ def main():
 
 	logging.info("%d documents have dupes, for a total of %d duplicates" % (len(dupes),sum ([x[1]-2 for x in dupes])))
 
+	if START_DATE :
+		datadict={k:v for (k,v) in datadict.iteritems() if asciiDateToDate(v['date']) >= asciiDateToDate(START_DATE)}
+		logging.info("%d documents were published after %s, and will be processed" % (len(datadict),START_DATE))
+
+
 	# retrieve each missing file from the net if needed
 	# convert each file to text
 	# filter the lines to find thos with the magic pattern
 	# save all such lines in d['candidates']
 	for (k,d) in datadict.iteritems():
 		basename=d['url'].split("/")[-1]
+
 		fullpath=os.path.join(DATADIR,basename)
 		if not os.path.exists(fullpath):
 			logger.info("Retrieving %s into %s" % (d['url'],DATADIR))
@@ -170,24 +187,25 @@ def main():
 	scores=p.map(score,datadict.values(),len(data)/4)
 	scores=reduce(lambda x,y:x+y,scores)
 
-	# there's a subtle point here, that if multiple lines in a file match the magic pattern
-	# and they both match with a high enough score, then the last line is the one
-	# that will be saved as the best match, regardless.
-	# in practice, not a problem
-	i=0
+
+	keepers=[]
 	for v in scores:
-		best=[ e for e in v if e['score'] == max([z['score'] for z in v ])][0]
-		if (best['score'] > SCORE_THRESHOLD):
-			datadict[best['url']].update(best)
-			i+=1
+		# keep all high enough scores
+		best=[ e for e in v if e['score'] > SCORE_THRESHOLD]
+		for c in best:
+			if (c['score'] > SCORE_THRESHOLD):
+				keepers.append(c)
 
-	logger.info("Located %d matches with score > %d out of %d unique documents"%(i,SCORE_THRESHOLD,len(datadict)))
+	logger.info("Located %d matches to mks with score > %d "%(len(keepers),SCORE_THRESHOLD))
 
-	# dump the matches with high enough scores to matches.json
+	# dump the good matches to MATCHESFILE
  	with codecs.open(MATCHESFILE,"wb",encoding='utf-8') as f:
-		keepers=filter(lambda x: x.get('score',0)>SCORE_THRESHOLD,datadict.values())
 		json.dump(keepers,f)
 		logger.info("saved matches as json in %s",MATCHESFILE)
+
+	del keepers
+
+	# <-> short-circuit here to skip previous stages
 
 	# load it back up
 	with codecs.open(MATCHESFILE,"r",encoding='utf-8') as f:
@@ -201,7 +219,6 @@ def main():
 	# output an excel-compatible CSV of ranking
 	with codecs.open(CSVFILE,"wb",encoding='utf-16-le') as f:
 		for (name,count) in cnt:
-
 			f.write(u"%s\t%d\n" % (name,count))
 
 	logger.info("saved rankings in %s",CSVFILE)
