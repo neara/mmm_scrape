@@ -82,10 +82,10 @@ logger=logging.getLogger("mmm-scrape")
 # instead of a function
 
 with open(IDENTITIESJSONFILE,"rb") as jsonfile:
-	mks=json.load(jsonfile)
+	identities=json.load(jsonfile)
 
 def	score(d):
-	""" fuzzy match between all the records in mks """
+	""" fuzzy match between all the records in identities """
 	""" and all the lines present inside d['candidates'] """
 	results=[]
 	for heading in d['candidates']:
@@ -95,7 +95,7 @@ def	score(d):
 						  'score' :0 if len(heading)<6 else fuzz.partial_ratio(entityName,heading),
 						  'entityName': entityName,
 						  'id':id,
-						  'heading' : heading}	for (entityName,id) in mks])
+						  'heading' : heading}	for (entityName,id) in identities])
 
 	return results
 
@@ -209,7 +209,7 @@ def main():
 	find_committee_slugs(datadict)
 
 	logger.info("Scoring %d documents " % len(datadict))
-	# use all cores to do the scoring, this is O(no. of mks * number of lines with magic pattern)
+	# use all cores to do the scoring, this is O(no. of identities * number of lines with magic pattern)
 	# can take a little while.
 	p=multiprocessing.Pool(multiprocessing.cpu_count())
 	scores=p.map(score,datadict.values(),len(data)/4)
