@@ -62,8 +62,8 @@ NOMATCHESFILE="no_match.json"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
-START_DATE="24/02/2009"
-#START_DATE=None
+#START_DATE="24/02/2009"
+START_DATE=None
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -138,12 +138,12 @@ def find_committee_slugs(datadict):
 	commitees=[]
 	for (k,v) in datadict.iteritems():
 		for c in v['candidates']:
-			m=re.search(u"ועדת\s*[^\s,\(\)\\.]+",c)
+			m=re.search(u"ועד[הת](\s*[^\s,\(\)\\.]+){1,6}",c)
 			if m:
 				commitees.append(m.group(0))
 
 	logger.info("%d unique commitees found, %d total occurences",len(set(commitees)),len(commitees) )
-	for k in set(commitees):
+	for k in sorted(set(commitees)):
 		logger.info("commitee: %s " % k)
 
 
@@ -187,18 +187,26 @@ def main():
 			with open(fullpath,"wb") as f:
 				f.write(urllib.urlopen(d['url']).read())
 				pass
+		fulltxtpath=os.path.join(DATADIR,basename.split('.')[0]+".txt")
+		if not os.path.exists(fulltxtpath):
+			cmd = "pdftotext %s -" % fullpath
+			logger.info("converting %s to text" % fullpath)
 
-		cmd = "pdftotext %s -" % fullpath
-		logger.info("converting %s to text" % fullpath)
+			p = subprocess.Popen(cmd.strip().split(' '), stdout=subprocess.PIPE)
+			(contents, errf) = p.communicate()
+			with codecs.open(fulltxtpath,"wb",encoding='utf-8') as f:
+				f.write(contents.decode('utf-8'))
+		else:
+			logger.info("Loading cached text for %s from %s" % (fullpath,fulltxtpath))
+			with codecs.open(fulltxtpath,encoding='utf-8') as f:
+				contents=f.read().encode('utf-8')
 
-		p = subprocess.Popen(cmd.strip().split(' '), stdout=subprocess.PIPE)
-		(contents, errf) = p.communicate()
 		lines=[x.decode('utf-8') for x in contents.split("\n")]
 		pat=filter(lambda x: re.search(u"מסמך\s+זה",x),lines)
 		datadict[k]['candidates']=pat
 
 
-	#find_committee_slugs(datadict)
+	find_committee_slugs(datadict)
 
 	logger.info("Scoring %d documents " % len(datadict))
 	# use all cores to do the scoring, this is O(no. of mks * number of lines with magic pattern)
