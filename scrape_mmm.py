@@ -213,7 +213,7 @@ def main():
 	# use all cores to do the scoring, this is O(no. of identities * number of lines with magic pattern)
 	# can take a little while.
 	p=multiprocessing.Pool(multiprocessing.cpu_count())
-	scores=p.map(score,datadict.values(),len(data)/4)
+	scores=p.map(score,datadict.values())
 	scores=reduce(lambda x,y:x+y,scores)
 
 
