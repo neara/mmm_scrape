@@ -50,7 +50,6 @@ from fuzzywuzzy import fuzz
 import logging
 import subprocess
 
-
 IDENTITIESJSONFILE="identities.json"
 DATADIR='./data/'
 SCORE_THRESHOLD=90
@@ -60,10 +59,11 @@ CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
 
+MAGIC_RE=u"(מסמך\s+זה)|(נכתב לבקשת)|(לכבוד)"
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
-#START_DATE="24/02/2009"
-START_DATE=None
+START_DATE="24/02/2009"
+#START_DATE=None
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -71,7 +71,6 @@ logging.basicConfig(level=logging.INFO,
 #		    filename='/tmp/myapp.log',
 #		    filemode='w'
 )
-
 logger=logging.getLogger("mmm-scrape")
 
 # IDENTITIESJSONFILE should contain mappings from names
@@ -202,7 +201,9 @@ def main():
 				contents=f.read().encode('utf-8')
 
 		lines=[x.decode('utf-8') for x in contents.split("\n")]
-		pat=filter(lambda x: re.search(u"מסמך\s+זה",x),lines)
+		pat = [ lines[i].strip() + " " + lines[i+1].strip()
+		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
+
 		datadict[k]['candidates']=pat
 
 
