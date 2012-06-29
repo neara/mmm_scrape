@@ -188,7 +188,7 @@ def main():
 				pass
 		fulltxtpath=os.path.join(DATADIR,basename.split('.')[0]+".txt")
 		if not os.path.exists(fulltxtpath):
-			cmd = "pdftotext %s -" % fullpath
+			cmd = "pdftotext -f 1 -l 5 %s -" % fullpath
 			logger.info("converting %s to text" % fullpath)
 
 			p = subprocess.Popen(cmd.strip().split(' '), stdout=subprocess.PIPE)
