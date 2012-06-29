@@ -59,7 +59,7 @@ CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
 
-MAGIC_RE=u"(מסמך\s+זה)|(נכתב לבקשת)|(לכבוד)"
+MAGIC_RE=u"(מסמך\s+זה)|(נכתב לבקשת)|(לכבוד)|(מוגש)"
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
 START_DATE="24/02/2009"
