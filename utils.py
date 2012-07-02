@@ -74,3 +74,17 @@ def getListFromFile(iname):
 		return [x.strip().split("\t") for x in lines]
 
 
+def heb_month_into_number(mstr):
+	"""
+	january-decdember become 1-12
+	"""
+	months = [u"monthzero",u"ינואר", u"פברואר", u"מר[סצץ]",
+	          u"אפריל", u"מאי", u"יוני",
+	          u"יולי", u"אוגוסט", u"ספטמבר",
+	          u"אוקטובר", u"נובמבר", u"דצמבר"]
+
+	for (i,m) in enumerate(months):
+		if re.search(m,mstr):
+			return i
+
+	return None

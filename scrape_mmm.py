@@ -69,10 +69,14 @@ CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
 REPORT_TEMPLATE_FILE = "matches_tmpl.html"
+MATCHES_HTML_FILE = "matches.html"
+DATE_TXT_FILE = "dates.txt"
 
 MAGIC_RE=u"(מסמך\s+זה)|"+\
          u"((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
          u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"
+DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיון|ישיבה|פגישה).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
+TOPIC_RE=u"((לקראת\s+דיון\s+בוו?עד).+(בנושא)"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
@@ -188,7 +192,7 @@ def main():
 		logging.info("START_DATE set, only %d documents published after %s will be processed." % (len(datadict),START_DATE))
 
 
-
+	dateList=[]
 	# retrieve each missing file from the net if needed
 	# convert each file to text
 	# filter the lines to find thos with the magic pattern
@@ -220,11 +224,22 @@ def main():
 		pat = [ lines[i].strip() + " " + lines[i+1].strip()
 		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
 
+
 		pat = [re.sub(u"['`\"]","",x ) for x in pat ]
 		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
 		pat = [re.sub(u"\s+"," ",x ) for x in pat ]
 
+		datepat = [ lines[i].strip() + " " + lines[i+1].strip()
+		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(DATE_RE,x)]
+
+
+		datepat = [re.sub(u"['`\"]","",x ) for x in datepat ]
+		datepat = [re.sub(u"[^א-ת\d]"," ",x ) for x in datepat ]
+		datepat = [re.sub(u"\s+"," ",x ) for x in datepat ]
+
 		datadict[k]['candidates']=pat
+
+		dateList+=datepat
 
 	find_committee_slugs(datadict)
 
@@ -266,9 +281,15 @@ def main():
 	# dump out a summary html file for review
 
 	t=Template(codecs.open(REPORT_TEMPLATE_FILE,encoding='utf-8').read())
-	with codecs.open("matches.html","wb",encoding='utf-8') as f:
+
+	with codecs.open(MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
 		s=t.render({'objs' : sorted(matches,key=lambda x:x['docid'])})
 		f.write(s)
+
+
+	with codecs.open(DATE_TXT_FILE,"wb",encoding='utf-8') as f:
+		for x in dateList:
+			f.write(x + "\n")
 
 #	with codecs.open("nomatches.html","wb",encoding='utf-8') as f:
 #		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['id'])})
