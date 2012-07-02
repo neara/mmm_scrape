@@ -75,9 +75,11 @@ NO_MATCHES_HTML_FILE = "no_matches.html"
 DATE_TXT_FILE = "dates.txt"
 TOPIC_TXT_FILE="topics.txt"
 
-MAGIC_RE=u"(מסמך\s+זה)|"+\
-         u"((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
-         u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"
+MAGIC_RE=u"(מסמך\s+זה)"+\
+         u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
+         u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"+\
+		  u"|לכבוד.+(חברת? הכנסת|חהכ)"+\
+		u"|לכבוד.+ועד"
 DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיון|ישיבה|פגישה).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
 TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
@@ -228,8 +230,8 @@ def main():
 				contents=f.read().encode('utf-8')
 
 		lines=[x.decode('utf-8') for x in contents.split("\n")]
-		pat = [ lines[i].strip() + " " + lines[i+1].strip()
-		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
+		pat = [ lines[i].strip() + " " + lines[i+1].strip() + " " + lines[i+2].strip()
+		        for (i,x) in enumerate(lines[:max(1000,len(lines)-3)]) if re.search(MAGIC_RE,x)]
 
 		pat = [re.sub(u"['`\"]","",x ) for x in pat ]
 		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
@@ -285,9 +287,9 @@ def main():
 
 	# save data of orphan documents separately, for forensics.
 	not_matched={x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
-	not_matched=[x for x in datadict.values() if x['url'] in not_matched ]
-	for (i,v) in enumerate(not_matched):
-	    not_matched[i].update({'docid' : get_base_name(v['url'])})
+	not_matched = [x for x in datadict.values() if x['url'] in not_matched]
+	for (i, v) in enumerate(not_matched):
+		not_matched[i].update({'docid': get_base_name(v['url'])})
 
 	with codecs.open(NOMATCHESFILE,"wb",encoding='utf-8') as f:
 		json.dump(not_matched,f)
