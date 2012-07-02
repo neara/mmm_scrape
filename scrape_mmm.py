@@ -183,10 +183,10 @@ def find_committee_slugs(datadict):
 
 
 def main():
-#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-#		json.dump(data,f)
-#		logger.info("saved data on documents as json in %s",LINKSFILE)
+	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+		json.dump(data,f)
+		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
