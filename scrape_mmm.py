@@ -177,10 +177,10 @@ def find_committee_slugs(datadict):
 
 
 def main():
-#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-#		json.dump(data,f)
-#		logger.info("saved data on documents as json in %s",LINKSFILE)
+	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+		json.dump(data,f)
+		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
@@ -242,7 +242,7 @@ def main():
 		   # which substantially slow down the scoring phase
 		mergedlines=[ " ".join([lines[i+j].strip() for j in range(n)] )
 		              for i in range(min(1000,len(lines)-n))]
-		
+
 		pat = [ x for x in mergedlines if re.search(MAGIC_RE,x)]
 		datepat = [ x for x in mergedlines if re.search(DATE_RE,x)]
 		topicpat = [ x for x in mergedlines if re.search(TOPIC_RE,x)]
@@ -316,7 +316,7 @@ def main():
 
 	with codecs.open(NO_MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
 		t=Template(codecs.open(NO_MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
-		logger.info("dumping out html report of none-matching files to %s",NO_MATCHES_HTML_FILE)
+		logger.info("dumping out html report of %d un-matched files to %s",len(not_matched),NO_MATCHES_HTML_FILE)
 		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['url'])})
 		f.write(s)
 
