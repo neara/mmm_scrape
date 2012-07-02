@@ -1,0 +1,45 @@
+<!DOCTYPE HTML>
+<html dir=rtl>
+<meta charset="utf-8">
+<head>
+    <title>matching results</title>
+    <style>
+        .cell {
+            border: solid;
+            border-width: 1px;
+            border-spacing: 0px;
+
+        }
+        .id  {
+            width: 100px;
+        }
+        .score {
+            width: 50px
+        }
+        .entity {
+            width: 200px;
+        }
+        .title {
+            width: 200px;
+        }
+        .text {
+            width:450px;
+        }
+        table        {
+            border-collapse:collapse;
+        }
+    </style>
+</head>
+<body>
+<table>
+    {% for m in objs %}
+    <div>
+        <tr><th class="hdr cell">מס"ד מסמך<th class="hdr cell">Score<th class="hdr cell">ישות שזוהתה</th></tr>
+    <tr><td class="id cell"><a href="{{m.url}}">{{m.docid}}</a></td><td class="score cell">{{m.score}}</td><td class="entity cell">{{m.entityName}}</td></tr>
+    <tr><td colspan=3 class="text cell">{{m.heading}}</td></tr>
+    </div>
+    {% endfor %}
+</table>
+</body>
+</html>
+
