@@ -57,6 +57,7 @@ from jinja2 import Template
 #    print i['url'].split("/")[-1]
 #    for c in nm[i]['candidates']:
 #        print c
+from utils import merge_lines_g
 
 COMMITEEJSONFILE="commitees.json"
 MKSJONFILE="mks.json"
@@ -75,12 +76,13 @@ NO_MATCHES_HTML_FILE = "no_matches.html"
 DATE_TXT_FILE = "dates.txt"
 TOPIC_TXT_FILE="topics.txt"
 
-MAGIC_RE=u"(מסמך\s+זה)"+\
+#MAGIC_RE=u"((מסמך|מכתב|דוח)\s+זה)"+\
+MAGIC_RE=u"((מסמך)\s+זה)"+\
          u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
          u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"+\
 		  u"|לכבוד.+(חברת? הכנסת|חהכ)"+\
 		u"|לכבוד.+ועד"
-DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיון|ישיבה|פגישה).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
+DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיו[ןנ]|ישיב|פגיש).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
 TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
 # for shorter runtime, if we only care about documents published since start of k18
@@ -187,7 +189,8 @@ def main():
 			data=json.load(f)
 
 	# convert to dict keyed by URL
-	datadict={d['url']:d for d in data[:] }
+	datadict={d['url']:d for d in data[:]  }
+	#datadict={d['url']:d for d in data[:]  if d['url'].find("2209")>=0}
 
 	keys=[x['url'] for x in data]+datadict.keys()
 	cnt=Counter(keys)
@@ -230,26 +233,19 @@ def main():
 				contents=f.read().encode('utf-8')
 
 		lines=[x.decode('utf-8') for x in contents.split("\n")]
-		pat = [ lines[i].strip() + " " + lines[i+1].strip() + " " + lines[i+2].strip()
-		        for (i,x) in enumerate(lines[:max(1000,len(lines)-3)]) if re.search(MAGIC_RE,x)]
+		lines= [re.sub(u"['`\"]","",x ) for x in lines ]
+		lines = [re.sub(u"[^א-ת\d]"," ",x ) for x in lines ]
+		lines = [re.sub(u"\s+"," ",x ) for x in lines ]
 
-		pat = [re.sub(u"['`\"]","",x ) for x in pat ]
-		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
-		pat = [re.sub(u"\s+"," ",x ) for x in pat ]
 
-		datepat = [ lines[i].strip() + " " + lines[i+1].strip()
-		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(DATE_RE,x)]
-
-		datepat = [re.sub(u"['`\"]","",x ) for x in datepat ]
-		datepat = [re.sub(u"[^א-ת\d]"," ",x ) for x in datepat ]
-		datepat = [re.sub(u"\s+"," ",x ) for x in datepat ]
-
-		topicpat = [ lines[i].strip() + " " + lines[i+1].strip()
-		            for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(TOPIC_RE,x)]
-
-		topicpat = [re.sub(u"['`\"]","",x ) for x in topicpat ]
-		topicpat = [re.sub(u"[^א-ת\d]"," ",x ) for x in topicpat ]
-		topicpat = [re.sub(u"\s+"," ",x ) for x in topicpat ]
+		n=3 # 2=2 gives 99% , n-3 gets a little more but generates lots of duplicates
+		   # which substantially slow down the scoring phase
+		mergedlines=[ " ".join([lines[i+j].strip() for j in range(n)] )
+		              for i in range(min(1000,len(lines)-n))]
+		
+		pat = [ x for x in mergedlines if re.search(MAGIC_RE,x)]
+		datepat = [ x for x in mergedlines if re.search(DATE_RE,x)]
+		topicpat = [ x for x in mergedlines if re.search(TOPIC_RE,x)]
 
 		datadict[k]['candidates']=pat
 		datedict[k]={'candidates':datepat}
@@ -275,10 +271,21 @@ def main():
 				matches.append(c)
 
 
-	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
-	            (len(matches), SCORE_THRESHOLD,
-	             len([x for x in matches if int(x['id']) < COMMITTE_ID_BASE]),
-	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
+	matchdict={}
+	for v in matches:
+		key="%s-%s" % (v['docid'],v['id'])
+		matchdict[key]= matchdict.get('key',[])+[v]
+
+	mksMatchesCnt=len([x for x in matchdict.values() if int(x[0]['id']) < COMMITTE_ID_BASE])
+	commMatchesCnt=len(matchdict)-mksMatchesCnt
+	logger.info("Located %d unique matches  with score > %d (%d: mks, %d: committee) " %\
+	            (len(matchdict), SCORE_THRESHOLD,mksMatchesCnt,commMatchesCnt))
+
+#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
+#	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
+#	            (len(matches), SCORE_THRESHOLD,
+#	             len([x for x in matches if int(x['id']) < COMMITTE_ID_BASE]),
+#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
 
 	# dump the good matches to MATCHESFILE
  	with codecs.open(MATCHESFILE,"wb",encoding='utf-8') as f:
@@ -300,7 +307,11 @@ def main():
 	with codecs.open(MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
 		t=Template(codecs.open(MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
 		logger.info("dumping out html report of matches to %s",MATCHES_HTML_FILE)
-		s=t.render({'objs' : sorted(matches,key=lambda x:x['docid'])})
+		# although multiplte lines may have matched the same entity,
+		# and all matches are held in ht ematch entry.
+		# there's also a lot of duplication due to  overlap between joined rows
+		# so, just show the first.
+		s=t.render({'objs' : [v[0] for (k,v) in sorted(matchdict.items())]})
 		f.write(s)
 
 	with codecs.open(NO_MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
