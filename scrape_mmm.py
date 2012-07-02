@@ -39,9 +39,9 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from functools import partial
 
-
-import urllib,os,json,sys,datetime,codecs
+import urllib, os, json, sys, datetime, codecs
 from bs4 import BeautifulSoup as bs4
 import re
 import multiprocessing
@@ -59,47 +59,47 @@ from jinja2 import Template
 #        print c
 from utils import merge_lines_g
 
-COMMITEEJSONFILE="commitees.json"
-MKSJONFILE="mks.json"
-IDENTITIESJSONFILE="identities.json"
-DATADIR='./data/'
-SCORE_THRESHOLD=90
-LINKSFILE="mmm.json"
-MATCHESFILE="matches.json"
-CSVFILE="counts.csv"
-COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
-NOMATCHESFILE="no_match.json"
+COMMITEEJSONFILE = "commitees.json"
+MKSJONFILE = "mks.json"
+IDENTITIESJSONFILE = "identities.json"
+DATADIR = './data/'
+SCORE_THRESHOLD = 90
+LINKSFILE = "mmm.json"
+MATCHESFILE = "matches.json"
+CSVFILE = "counts.csv"
+COMMITTE_ID_BASE = 10000 # all ids  higher then this in identities.json identify commitees , not persons
+NOMATCHESFILE = "no_match.json"
 MATCHES_TEMPLATE_FILE = "matches_tmpl.html"
 NO_MATCHES_TEMPLATE_FILE = "no_matches_tmpl.html"
 MATCHES_HTML_FILE = "matches.html"
 NO_MATCHES_HTML_FILE = "no_matches.html"
 DATE_TXT_FILE = "dates.txt"
-TOPIC_TXT_FILE="topics.txt"
+TOPIC_TXT_FILE = "topics.txt"
 
 #MAGIC_RE=u"((מסמך|מכתב|דוח)\s+זה)"+\
-MAGIC_RE=u"((מסמך)\s+זה)"+\
-         u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
-         u"|((לקראת|עקבות)\s+(דיו[נן]|פגישה|ישיבה))"+\
-		  u"|(לכבוד|בראשות).+(חברת? הכנסת|חהכ)"+\
-		u"|לכבוד.+ועד"+\
-		u"|(לבקשת|מוגש).+ועד"+\
-		u"|דיו[נן]\s+משות"
-DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיו[ןנ]|ישיב|פגיש).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
-TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
+MAGIC_RE = u"((מסמך)\s+זה)" +\
+           u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))" +\
+           u"|((לקראת|עקבות)\s+(דיו[נן]|פגישה|ישיבה))" +\
+           u"|(לכבוד|בראשות).+(חברת? הכנסת|חהכ)" +\
+           u"|לכבוד.+ועד" +\
+           u"|(לבקשת|מוגש).+ועד" +\
+           u"|דיו[נן]\s+משות"
+DATE_RE = u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיו[ןנ]|ישיב|פגיש).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
+TOPIC_RE = u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
 #START_DATE="24/02/2012"
-START_DATE="24/02/2009"
+START_DATE = "24/02/2009"
 #START_DATE=None
 
 logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
 	datefmt='%m-%d %H:%M:%S',
-#		    filename='/tmp/myapp.log',
-#		    filemode='w'
+	#		    filename='/tmp/myapp.log',
+	#		    filemode='w'
 )
-logger=logging.getLogger("mmm-scrape")
+logger = logging.getLogger("mmm-scrape")
 
 # IDENTITIESJSONFILE should contain mappings from names
 # to ids (the included file maps names to mk  ids as they appear on oknesset.org)
@@ -108,254 +108,256 @@ logger=logging.getLogger("mmm-scrape")
 # because multiprocessing.Map chokes when given a method
 # instead of a function
 
-with open(IDENTITIESJSONFILE,"rb") as jsonfile:
-	identities=json.load(jsonfile)
+with open(IDENTITIESJSONFILE, "rb") as jsonfile:
+	identities = json.load(jsonfile)
 
-def	score(d):
+def    score(score_threshold, d):
 	""" fuzzy match between all the records in identities """
 	""" and all the lines present inside d['candidates'] """
-	results=[]
+	results = []
 	for heading in d['candidates']:
-		results.append( [{'docid' : get_base_name(d['url']),
-							'url' : d['url'],
-		                  'title' : d['title'],
-		                  'date' : d['date'],
-						  'score' :0 if len(heading)<6 else fuzz.partial_ratio(entityName,heading),
-						  'entityName': entityName,
-						  'id':id,
-						  'heading' : heading}	for (entityName,id) in identities])
+		cand = [{'docid': get_base_name(d['url']),
+		         'url': d['url'],
+		         'title': d['title'],
+		         'date': d['date'],
+		         'score': 0 if len(heading) < 6 else fuzz.partial_ratio(entityName, heading),
+		         'entityName': entityName,
+		         'id': id,
+		         'heading': heading}    for (entityName, id) in identities]
 
+		results.append([x for x in cand if x['score'] > score_threshold])
 	return results
+
 
 def get_base_name(url):
 	return url.split("/")[-1].split(".")[0]
+
 
 def scrape(url):
 	""" get the page, extract the data, return a list of dicts"""
 	""" with keys 'title','url','date' and 'author'"""
 
 	logger.info("Retrieving  %s" % url)
-	h=urllib.urlopen(url).read()
+	h = urllib.urlopen(url).read()
 	logger.info("Parsing HTML")
-	s=bs4(h)
+	s = bs4(h)
 	logger.info("Extracting document metadata")
-	d_links=filter(lambda x: x['href'].find("/pdf/") >=0,s.find_all("a","Link3"))
-	d_links= ['http://knesset.gov.il'+x['href'] for x in d_links]
-	d_titles=[x.text for x in s.find_all("td","Title2")]
-	d_body=s.find_all("td","Text13")
-	d_date=[x.text for x in [a.find_all("font")[0] for a in d_body]]
-	d_author=[x.text for x in [a.find_all("font")[1] for a in d_body]]
+	d_links = filter(lambda x: x['href'].find("/pdf/") >= 0, s.find_all("a", "Link3"))
+	d_links = ['http://knesset.gov.il' + x['href'] for x in d_links]
+	d_titles = [x.text for x in s.find_all("td", "Title2")]
+	d_body = s.find_all("td", "Text13")
+	d_date = [x.text for x in [a.find_all("font")[0] for a in d_body]]
+	d_author = [x.text for x in [a.find_all("font")[1] for a in d_body]]
 
-	if not len(d_links)==len(d_titles)==len(d_date)==len(d_author):
+	if not len(d_links) == len(d_titles) == len(d_date) == len(d_author):
 		print "Had trouble processing the data from the page. dying"
 		sys.exit(1)
 
-	data=zip(d_titles,d_links,d_date,d_author)
-	data=[{'title':d[0],'url':d[1],'date':d[2]} for d in data]
+	data = zip(d_titles, d_links, d_date, d_author)
+	data = [{'title': d[0], 'url': d[1], 'date': d[2]} for d in data]
 
 	return data
+
 
 def asciiDateToDate(x):
 	"""
 	parse date of the form "dd/mm/YYYY"
 	"""
-	datel=x.split("/")
+	datel = x.split("/")
 	datel.reverse()
-	return apply(datetime.date,map(int,datel))
+	return apply(datetime.date, map(int, datel))
 
 # hopefully, the first word in the name of the committee
 # is a unique identifier. This will rear it's ugly head someday
 def find_committee_slugs(datadict):
-	commitees=[]
-	for (k,v) in datadict.iteritems():
+	commitees = []
+	for (k, v) in datadict.iteritems():
 		for c in v['candidates']:
-			m=re.search(u"ועד[הת](\s*[^\s,\(\)\\.]+){1,6}",c)
+			m = re.search(u"ועד[הת](\s*[^\s,\(\)\\.]+){1,6}", c)
 			if m:
 				commitees.append(m.group(0))
 
-	logger.info("%d unique commitees found, %d total occurences",len(set(commitees)),len(commitees) )
+	logger.info("%d unique commitees found, %d total occurences", len(set(commitees)), len(commitees))
 	for k in sorted(set(commitees)):
 		logger.info("commitee: %s " % k)
 
 
 def main():
-	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-		json.dump(data,f)
-		logger.info("saved data on documents as json in %s",LINKSFILE)
+#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+#		json.dump(data,f)
+#		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
 	# load back the data
-	with codecs.open(LINKSFILE,encoding='utf-8') as f:
-			data=json.load(f)
+	with codecs.open(LINKSFILE, encoding='utf-8') as f:
+		data = json.load(f)
 
 	# convert to dict keyed by URL
-	datadict={d['url']:d for d in data[:]  }
+	datadict = {d['url']: d for d in data[:]}
 	#datadict={d['url']:d for d in data[:]  if d['url'].find("2252")>=0}
 
-	keys=[x['url'] for x in data]+datadict.keys()
-	cnt=Counter(keys)
-	dupes=filter(lambda x: x[1]>2,cnt.iteritems())
+	keys = [x['url'] for x in data] + datadict.keys()
+	cnt = Counter(keys)
+	dupes = filter(lambda x: x[1] > 2, cnt.iteritems())
 
-	logging.info("%d documents have dupes, for a total of %d duplicates" % (len(dupes),sum ([x[1]-2 for x in dupes])))
+	logging.info("%d documents have dupes, for a total of %d duplicates" % (len(dupes), sum([x[1] - 2 for x in dupes])))
 
-	if START_DATE :
-		datadict={k:v for (k,v) in datadict.iteritems() if asciiDateToDate(v['date']) >= asciiDateToDate(START_DATE)}
-		logging.info("START_DATE set, only %d documents published after %s will be processed." % (len(datadict),START_DATE))
+	if START_DATE:
+		datadict = {k: v for (k, v) in datadict.iteritems() if
+		            asciiDateToDate(v['date']) >= asciiDateToDate(START_DATE)}
+		logging.info(
+			"START_DATE set, only %d documents published after %s will be processed." % (len(datadict), START_DATE))
 
-
-	datedict={}
-	topicdict={}
+	datedict = {}
+	topicdict = {}
 	# retrieve each missing file from the net if needed
 	# convert each file to text
 	# filter the lines to find thos with the magic pattern
 	# save all such lines in d['candidates']
-	for (k,d) in  sorted(datadict.iteritems()):
-		basename=d['url'].split("/")[-1]
+	for (k, d) in sorted(datadict.iteritems()):
+		basename = d['url'].split("/")[-1]
 
-		fullpath=os.path.join(DATADIR,basename)
+		fullpath = os.path.join(DATADIR, basename)
 		if not os.path.exists(fullpath):
-			logger.info("Retrieving %s into %s" % (d['url'],DATADIR))
-			with open(fullpath,"wb") as f:
+			logger.info("Retrieving %s into %s" % (d['url'], DATADIR))
+			with open(fullpath, "wb") as f:
 				f.write(urllib.urlopen(d['url']).read())
 				pass
-		fulltxtpath=os.path.join(DATADIR,basename.split('.')[0]+".txt")
+		fulltxtpath = os.path.join(DATADIR, basename.split('.')[0] + ".txt")
 		if not os.path.exists(fulltxtpath):
 			cmd = "pdftotext -f 1 -l 5 %s -" % fullpath
 			logger.info("converting %s to text" % fullpath)
 
 			p = subprocess.Popen(cmd.strip().split(' '), stdout=subprocess.PIPE)
 			(contents, errf) = p.communicate()
-			with codecs.open(fulltxtpath,"wb",encoding='utf-8') as f:
+			with codecs.open(fulltxtpath, "wb", encoding='utf-8') as f:
 				f.write(contents.decode('utf-8'))
 		else:
-			logger.info("Loading cached text for %s from %s" % (fullpath,fulltxtpath))
-			with codecs.open(fulltxtpath,encoding='utf-8') as f:
-				contents=f.read().encode('utf-8')
+			logger.info("Loading cached text for %s from %s" % (fullpath, fulltxtpath))
+			with codecs.open(fulltxtpath, encoding='utf-8') as f:
+				contents = f.read().encode('utf-8')
 
-		lines=[x.decode('utf-8') for x in contents.split("\n")]
-		lines= [re.sub(u"['`\"]","",x ) for x in lines ]
-		lines = [re.sub(u"[^א-ת\d]"," ",x ) for x in lines ]
-		lines = [re.sub(u"וו?עד",u"ועד",x ) for x in lines ]
-		lines = [re.sub(u"[לב]ועד",u"ועד",x ) for x in lines ]
-	#	lines = [re.sub(u"\sה",u" ",x ) for x in lines ]
-		lines = [re.sub(u"\s+"," ",x ) for x in lines ]
+		lines = [x.decode('utf-8') for x in contents.split("\n")]
+		lines = [re.sub(u"['`\"]", "", x) for x in lines]
+		lines = [re.sub(u"[^א-ת\d]", " ", x) for x in lines]
+		lines = [re.sub(u"וו?עד", u"ועד", x) for x in lines]
+		lines = [re.sub(u"[לב]ועד", u"ועד", x) for x in lines]
+		#	lines = [re.sub(u"\sה",u" ",x ) for x in lines ]
+		lines = [re.sub(u"\s+", " ", x) for x in lines]
 
-		n=3 # 2=2 gives 99% , n-3 gets a little more but generates lots of duplicates
-		   # which substantially slows down the scoring phase
-		mergedlines=[ " ".join([lines[i+j].strip() for j in range(n)] )
-		              for i in range(min(1000,len(lines)-n))]
+		n = 3 # 2=2 gives 99% , n-3 gets a little more but generates lots of duplicates
+		# which substantially slows down the scoring phase
+		mergedlines = [" ".join([lines[i + j].strip() for j in range(n)])
+		               for i in range(min(1000, len(lines) - n))]
 
-		pat = [ x for x in mergedlines if re.search(MAGIC_RE,x)]
-		datepat = [ x for x in mergedlines if re.search(DATE_RE,x)]
-		topicpat = [ x for x in mergedlines if re.search(TOPIC_RE,x)]
+		pat = [x for x in mergedlines if re.search(MAGIC_RE, x)]
+		datepat = [x for x in mergedlines if re.search(DATE_RE, x)]
+		topicpat = [x for x in mergedlines if re.search(TOPIC_RE, x)]
 
-		datadict[k]['candidates']=pat
-		datedict[k]={'candidates':datepat}
-		topicdict[k]={'candidates':topicpat}
-
+		datadict[k]['candidates'] = pat
+		datedict[k] = {'candidates': datepat}
+		topicdict[k] = {'candidates': topicpat}
 
 	find_committee_slugs(datadict)
 
 	logger.info("Scoring %d documents " % len(datadict))
 	# use all cores to do the scoring, this is O(no. of identities * number of lines with magic pattern)
 	# can take a little while.
-	p=multiprocessing.Pool(multiprocessing.cpu_count())
-	scores=p.map(score,datadict.values())
-	scores=reduce(lambda x,y:x+y,scores)
+	p = multiprocessing.Pool(multiprocessing.cpu_count())
+	f = partial(score, SCORE_THRESHOLD)
+	matches = p.map(f, datadict.values())
+	matches = reduce(lambda x, y: x + y, matches)
+	matches = reduce(lambda x, y: x + y, matches)
+	#
+	#	matches=[]
+	#	for v in scores:
+	#		for c in v:
+	#			matches.append(c)
 
 
-	matches=[]
-	for v in scores:
-		# keep all high enough scores
-		best=[ e for e in v if e['score'] > SCORE_THRESHOLD]
-		for c in best:
-			if (c['score'] > SCORE_THRESHOLD):
-				matches.append(c)
-
-
-	matchdict={}
+	matchdict = {}
 	for v in matches:
-		key="%s-%s" % (v['docid'],v['id'])
-		matchdict[key]= matchdict.get('key',[])+[v]
+		key = "%s-%s" % (v['docid'], v['id'])
+		matchdict[key] = matchdict.get('key', []) + [v]
 
-	mksMatchesCnt=len([x for x in matchdict.values() if int(x[0]['id']) < COMMITTE_ID_BASE])
-	commMatchesCnt=len(matchdict)-mksMatchesCnt
+	mksMatchesCnt = len([x for x in matchdict.values() if int(x[0]['id']) < COMMITTE_ID_BASE])
+	commMatchesCnt = len(matchdict) - mksMatchesCnt
 	logger.info("Located %d unique matches  with score > %d (%d: mks, %d: committee) " %\
-	            (len(matchdict), SCORE_THRESHOLD,mksMatchesCnt,commMatchesCnt))
+	            (len(matchdict), SCORE_THRESHOLD, mksMatchesCnt, commMatchesCnt))
 
-#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
-#	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
-#	            (len(matches), SCORE_THRESHOLD,
-#	             len([x for x in matches if int(x['id']) < COMMITTE_ID_BASE]),
-#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
+	#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
+	#	logger.info("Located %d matches to with score > %d (%d: mks, %d: committee) " %\
+	#	            (len(matches), SCORE_THRESHOLD,
+	#	             len([x for x in matches if int(x['id']) < COMMITTE_ID_BASE]),
+	#	             len([x for x in matches if int(x['id']) >= COMMITTE_ID_BASE])))
 
 	# dump the good matches to MATCHESFILE
- 	with codecs.open(MATCHESFILE,"wb",encoding='utf-8') as f:
-		json.dump(matches,f)
-		logger.info("saved matches as json in %s",MATCHESFILE)
+	with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
+		json.dump(matches, f)
+		logger.info("saved matches as json in %s", MATCHESFILE)
 
 	# save data of orphan documents separately, for forensics.
-	not_matched={x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
+	not_matched = {x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
 	not_matched = [x for x in datadict.values() if x['url'] in not_matched]
 	for (i, v) in enumerate(not_matched):
 		not_matched[i].update({'docid': get_base_name(v['url'])})
 
-	with codecs.open(NOMATCHESFILE,"wb",encoding='utf-8') as f:
-		json.dump(not_matched,f)
-		logger.info("saved details of documents with no matches as json in %s",NOMATCHESFILE)
+	with codecs.open(NOMATCHESFILE, "wb", encoding='utf-8') as f:
+		json.dump(not_matched, f)
+		logger.info("saved details of documents with no matches as json in %s", NOMATCHESFILE)
 
 	# dump out a summary html file for review
 
-	with codecs.open(MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
-		t=Template(codecs.open(MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
-		logger.info("dumping out html report of matches to %s",MATCHES_HTML_FILE)
+	with codecs.open(MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
+		t = Template(codecs.open(MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
+		logger.info("dumping out html report of matches to %s", MATCHES_HTML_FILE)
 		# although multiplte lines may have matched the same entity,
 		# and all matches are held in ht ematch entry.
 		# there's also a lot of duplication due to  overlap between joined rows
 		# so, just show the first.
-		s=t.render({'objs' : [v[0] for (k,v) in sorted(matchdict.items())]})
+		s = t.render({'objs': [v[0] for (k, v) in sorted(matchdict.items())]})
 		f.write(s)
 
-	with codecs.open(NO_MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
-		t=Template(codecs.open(NO_MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
-		logger.info("dumping out html report of %d un-matched files to %s",len(not_matched),NO_MATCHES_HTML_FILE)
-		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['url'])})
+	with codecs.open(NO_MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
+		t = Template(codecs.open(NO_MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
+		logger.info("dumping out html report of %d un-matched files to %s", len(not_matched), NO_MATCHES_HTML_FILE)
+		s = t.render({'objs': sorted(not_matched, key=lambda x: x['url'])})
 		f.write(s)
 
-	with codecs.open(DATE_TXT_FILE,"wb",encoding='utf-8') as f:
-		logger.info("dumping out names of files with probable session dates to %s",DATE_TXT_FILE)
-		for (k,v) in datedict.iteritems():
+	with codecs.open(DATE_TXT_FILE, "wb", encoding='utf-8') as f:
+		logger.info("dumping out names of files with probable session dates to %s", DATE_TXT_FILE)
+		for (k, v) in datedict.iteritems():
 			for x in v['candidates']:
-				f.write("%s\t%s" %(get_base_name(k),x) + "\n")
+				f.write("%s\t%s" % (get_base_name(k), x) + "\n")
 
-	with codecs.open(TOPIC_TXT_FILE,"wb",encoding='utf-8') as f:
-		logger.info("dumping out names of files with probable session topics to %s",TOPIC_TXT_FILE)
-		for (k,v) in topicdict.iteritems():
+	with codecs.open(TOPIC_TXT_FILE, "wb", encoding='utf-8') as f:
+		logger.info("dumping out names of files with probable session topics to %s", TOPIC_TXT_FILE)
+		for (k, v) in topicdict.iteritems():
 			for x in v['candidates']:
-				f.write("%s\t%s" %(get_base_name(k),x) + "\n")
+				f.write("%s\t%s" % (get_base_na + me(k), x) + "\n")
 
-#	with codecs.open("nomatches.html","wb",encoding='utf-8') as f:
-#		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['id'])})
-#		f.write(s)
+			#	with codecs.open("nomatches.html","wb",encoding='utf-8') as f:
+			#		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['id'])})
+			#		f.write(s)
 	# <-> short-circuit here to skip previous stages
 
 	# load it back up
-	with codecs.open(MATCHESFILE,"r",encoding='utf-8') as f:
-		matches=json.load(f)
+	with codecs.open(MATCHESFILE, "r", encoding='utf-8') as f:
+		matches = json.load(f)
 
 	# build a table which holds the number of documents associated with each name
 	logger.info("Preparing rankings")
-	cnt= list(Counter ([x['entityName'] for x in matches]).iteritems())
-	cnt.sort(key=lambda x:x[1])
+	cnt = list(Counter([x['entityName'] for x in matches]).iteritems())
+	cnt.sort(key=lambda x: x[1])
 
 	# output an excel-compatible CSV of ranking
-	with codecs.open(CSVFILE,"wb",encoding='utf-16-le') as f:
-		for (name,count) in cnt:
-			f.write(u"%s\t%d\n" % (name,count))
+	with codecs.open(CSVFILE, "wb", encoding='utf-16-le') as f:
+		for (name, count) in cnt:
+			f.write(u"%s\t%d\n" % (name, count))
 
-	logger.info("saved rankings in %s",CSVFILE)
+	logger.info("saved rankings in %s", CSVFILE)
 
 	logger.info("Cheers.")
 
