@@ -79,9 +79,10 @@ TOPIC_TXT_FILE="topics.txt"
 #MAGIC_RE=u"((מסמך|מכתב|דוח)\s+זה)"+\
 MAGIC_RE=u"((מסמך)\s+זה)"+\
          u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
-         u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"+\
+         u"|((לקראת|עקבות)\s+(דיו[נן]|פגישה|ישיבה))"+\
 		  u"|לכבוד.+(חברת? הכנסת|חהכ)"+\
-		u"|לכבוד.+ועד"
+		u"|לכבוד.+ועד"+\
+		u"|מוגשת.+ועד"
 DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיו[ןנ]|ישיב|פגיש).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
 TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
@@ -177,10 +178,10 @@ def find_committee_slugs(datadict):
 
 
 def main():
-	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-		json.dump(data,f)
-		logger.info("saved data on documents as json in %s",LINKSFILE)
+#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+#		json.dump(data,f)
+#		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
@@ -190,7 +191,7 @@ def main():
 
 	# convert to dict keyed by URL
 	datadict={d['url']:d for d in data[:]  }
-	#datadict={d['url']:d for d in data[:]  if d['url'].find("2209")>=0}
+	#datadict={d['url']:d for d in data[:]  if d['url'].find("2252")>=0}
 
 	keys=[x['url'] for x in data]+datadict.keys()
 	cnt=Counter(keys)
@@ -235,11 +236,13 @@ def main():
 		lines=[x.decode('utf-8') for x in contents.split("\n")]
 		lines= [re.sub(u"['`\"]","",x ) for x in lines ]
 		lines = [re.sub(u"[^א-ת\d]"," ",x ) for x in lines ]
+		lines = [re.sub(u"וו?עד",u"ועד",x ) for x in lines ]
+		lines = [re.sub(u"[לב]ועד",u"ועד",x ) for x in lines ]
+	#	lines = [re.sub(u"\sה",u" ",x ) for x in lines ]
 		lines = [re.sub(u"\s+"," ",x ) for x in lines ]
 
-
 		n=3 # 2=2 gives 99% , n-3 gets a little more but generates lots of duplicates
-		   # which substantially slow down the scoring phase
+		   # which substantially slows down the scoring phase
 		mergedlines=[ " ".join([lines[i+j].strip() for j in range(n)] )
 		              for i in range(min(1000,len(lines)-n))]
 
