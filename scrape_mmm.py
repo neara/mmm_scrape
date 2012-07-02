@@ -220,8 +220,8 @@ def main():
 		pat = [ lines[i].strip() + " " + lines[i+1].strip()
 		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
 
-		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
 		pat = [re.sub(u"['`\"]","",x ) for x in pat ]
+		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
 		pat = [re.sub(u"\s+"," ",x ) for x in pat ]
 
 		datadict[k]['candidates']=pat
