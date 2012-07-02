@@ -68,15 +68,18 @@ MATCHESFILE="matches.json"
 CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
-REPORT_TEMPLATE_FILE = "matches_tmpl.html"
+MATCHES_TEMPLATE_FILE = "matches_tmpl.html"
+NO_MATCHES_TEMPLATE_FILE = "no_matches_tmpl.html"
 MATCHES_HTML_FILE = "matches.html"
+NO_MATCHES_HTML_FILE = "no_matches.html"
 DATE_TXT_FILE = "dates.txt"
+TOPIC_TXT_FILE="topics.txt"
 
 MAGIC_RE=u"(מסמך\s+זה)|"+\
          u"((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
          u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"
 DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיון|ישיבה|פגישה).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
-TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא)"
+TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
@@ -107,7 +110,7 @@ def	score(d):
 	""" and all the lines present inside d['candidates'] """
 	results=[]
 	for heading in d['candidates']:
-		results.append( [{'docid' : d['url'].split("/")[-1].split(".")[0],
+		results.append( [{'docid' : get_base_name(d['url']),
 							'url' : d['url'],
 		                  'title' : d['title'],
 		                  'date' : d['date'],
@@ -117,6 +120,9 @@ def	score(d):
 						  'heading' : heading}	for (entityName,id) in identities])
 
 	return results
+
+def get_base_name(url):
+	return url.split("/")[-1].split(".")[0]
 
 def scrape(url):
 	""" get the page, extract the data, return a list of dicts"""
@@ -192,7 +198,8 @@ def main():
 		logging.info("START_DATE set, only %d documents published after %s will be processed." % (len(datadict),START_DATE))
 
 
-	dateList=[]
+	datedict={}
+	topicdict={}
 	# retrieve each missing file from the net if needed
 	# convert each file to text
 	# filter the lines to find thos with the magic pattern
@@ -224,7 +231,6 @@ def main():
 		pat = [ lines[i].strip() + " " + lines[i+1].strip()
 		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
 
-
 		pat = [re.sub(u"['`\"]","",x ) for x in pat ]
 		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
 		pat = [re.sub(u"\s+"," ",x ) for x in pat ]
@@ -232,14 +238,21 @@ def main():
 		datepat = [ lines[i].strip() + " " + lines[i+1].strip()
 		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(DATE_RE,x)]
 
-
 		datepat = [re.sub(u"['`\"]","",x ) for x in datepat ]
 		datepat = [re.sub(u"[^א-ת\d]"," ",x ) for x in datepat ]
 		datepat = [re.sub(u"\s+"," ",x ) for x in datepat ]
 
-		datadict[k]['candidates']=pat
+		topicpat = [ lines[i].strip() + " " + lines[i+1].strip()
+		            for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(TOPIC_RE,x)]
 
-		dateList+=datepat
+		topicpat = [re.sub(u"['`\"]","",x ) for x in topicpat ]
+		topicpat = [re.sub(u"[^א-ת\d]"," ",x ) for x in topicpat ]
+		topicpat = [re.sub(u"\s+"," ",x ) for x in topicpat ]
+
+		datadict[k]['candidates']=pat
+		datedict[k]={'candidates':datepat}
+		topicdict[k]={'candidates':topicpat}
+
 
 	find_committee_slugs(datadict)
 
@@ -273,23 +286,38 @@ def main():
 	# save data of orphan documents separately, for forensics.
 	not_matched={x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
 	not_matched=[x for x in datadict.values() if x['url'] in not_matched ]
+	for (i,v) in enumerate(not_matched):
+	    not_matched[i].update({'docid' : get_base_name(v['url'])})
+
 	with codecs.open(NOMATCHESFILE,"wb",encoding='utf-8') as f:
 		json.dump(not_matched,f)
 		logger.info("saved details of documents with no matches as json in %s",NOMATCHESFILE)
 
-
 	# dump out a summary html file for review
 
-	t=Template(codecs.open(REPORT_TEMPLATE_FILE,encoding='utf-8').read())
-
 	with codecs.open(MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
+		t=Template(codecs.open(MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
+		logger.info("dumping out html report of matches to %s",MATCHES_HTML_FILE)
 		s=t.render({'objs' : sorted(matches,key=lambda x:x['docid'])})
 		f.write(s)
 
+	with codecs.open(NO_MATCHES_HTML_FILE,"wb",encoding='utf-8') as f:
+		t=Template(codecs.open(NO_MATCHES_TEMPLATE_FILE,encoding='utf-8').read())
+		logger.info("dumping out html report of none-matching files to %s",NO_MATCHES_HTML_FILE)
+		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['url'])})
+		f.write(s)
 
 	with codecs.open(DATE_TXT_FILE,"wb",encoding='utf-8') as f:
-		for x in dateList:
-			f.write(x + "\n")
+		logger.info("dumping out names of files with probable session dates to %s",DATE_TXT_FILE)
+		for (k,v) in datedict.iteritems():
+			for x in v['candidates']:
+				f.write("%s\t%s" %(get_base_name(k),x) + "\n")
+
+	with codecs.open(TOPIC_TXT_FILE,"wb",encoding='utf-8') as f:
+		logger.info("dumping out names of files with probable session topics to %s",TOPIC_TXT_FILE)
+		for (k,v) in topicdict.iteritems():
+			for x in v['candidates']:
+				f.write("%s\t%s" %(get_base_name(k),x) + "\n")
 
 #	with codecs.open("nomatches.html","wb",encoding='utf-8') as f:
 #		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['id'])})

@@ -1,0 +1,35 @@
+<!DOCTYPE HTML>
+<html dir=rtl>
+<meta charset="utf-8">
+<head>
+    <title>matching results</title>
+    <style>
+        .cell {
+            border: solid;
+            border-width: 1px;
+            border-spacing: 0px;
+
+        }
+        .id  {
+            width: 100px;
+        }
+        .title {
+            width: 450px;
+        }
+        table        {
+            border-collapse:collapse;
+        }
+    </style>
+</head>
+<body>
+<table>
+    {% for m in objs %}
+    <div>
+
+    <tr><td class="id cell"><a href="{{m.url}}">{{m.docid}}</a></td><td class="title cell">{{m.title}}</td></tr>
+    </div>
+    {% endfor %}
+</table>
+</body>
+</html>
+
