@@ -49,7 +49,17 @@ from collections import Counter
 from fuzzywuzzy import fuzz
 import logging
 import subprocess
+from jinja2 import Template
 
+#def printd(i):
+#    with codecs.open("no_match.json") as f:
+#        nm=json.load(f)
+#    print i['url'].split("/")[-1]
+#    for c in nm[i]['candidates']:
+#        print c
+
+COMMITEEJSONFILE="commitees.json"
+MKSJONFILE="mks.json"
 IDENTITIESJSONFILE="identities.json"
 DATADIR='./data/'
 SCORE_THRESHOLD=90
@@ -58,10 +68,15 @@ MATCHESFILE="matches.json"
 CSVFILE="counts.csv"
 COMMITTE_ID_BASE=10000 # all ids  higher then this in identities.json identify commitees , not persons
 NOMATCHESFILE="no_match.json"
+REPORT_TEMPLATE_FILE = "matches_tmpl.html"
 
-MAGIC_RE=u"(מסמך\s+זה)|(נכתב לבקשת)|(לכבוד)|(מוגש)|(נכתב עבור)|(הוכן לבקשת)"
+MAGIC_RE=u"(מסמך\s+זה)|"+\
+         u"((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
+         u"|((לקראת|עקבות)\s+(דיון|פגישה|ישיבה))"
+
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
+#START_DATE="24/02/2012"
 START_DATE="24/02/2009"
 #START_DATE=None
 
@@ -88,7 +103,8 @@ def	score(d):
 	""" and all the lines present inside d['candidates'] """
 	results=[]
 	for heading in d['candidates']:
-		results.append( [{'url' : d['url'],
+		results.append( [{'docid' : d['url'].split("/")[-1].split(".")[0],
+							'url' : d['url'],
 		                  'title' : d['title'],
 		                  'date' : d['date'],
 						  'score' :0 if len(heading)<6 else fuzz.partial_ratio(entityName,heading),
@@ -147,10 +163,10 @@ def find_committee_slugs(datadict):
 
 
 def main():
-	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-		json.dump(data,f)
-		logger.info("saved data on documents as json in %s",LINKSFILE)
+#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+#		json.dump(data,f)
+#		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
@@ -159,7 +175,7 @@ def main():
 			data=json.load(f)
 
 	# convert to dict keyed by URL
-	datadict={d['url']:d for d in data[:]}
+	datadict={d['url']:d for d in data[:] }
 
 	keys=[x['url'] for x in data]+datadict.keys()
 	cnt=Counter(keys)
@@ -204,8 +220,10 @@ def main():
 		pat = [ lines[i].strip() + " " + lines[i+1].strip()
 		        for (i,x) in enumerate(lines[:max(1000,len(lines)-2)]) if re.search(MAGIC_RE,x)]
 
-		datadict[k]['candidates']=pat
+		pat = [re.sub(u"[^א-ת\d]"," ",x ) for x in pat ]
+		pat = [re.sub(u"\s+"," ",x ) for x in pat ]
 
+		datadict[k]['candidates']=pat
 
 	find_committee_slugs(datadict)
 
@@ -244,6 +262,16 @@ def main():
 		logger.info("saved details of documents with no matches as json in %s",NOMATCHESFILE)
 
 
+	# dump out a summary html file for review
+
+	t=Template(codecs.open(REPORT_TEMPLATE_FILE,encoding='utf-8').read())
+	with codecs.open("matches.html","wb",encoding='utf-8') as f:
+		s=t.render({'objs' : sorted(matches,key=lambda x:x['docid'])})
+		f.write(s)
+
+#	with codecs.open("nomatches.html","wb",encoding='utf-8') as f:
+#		s=t.render({'objs' : sorted(not_matched,key=lambda x:x['id'])})
+#		f.write(s)
 	# <-> short-circuit here to skip previous stages
 
 	# load it back up
