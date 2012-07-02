@@ -80,9 +80,10 @@ TOPIC_TXT_FILE="topics.txt"
 MAGIC_RE=u"((מסמך)\s+זה)"+\
          u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))"+\
          u"|((לקראת|עקבות)\s+(דיו[נן]|פגישה|ישיבה))"+\
-		  u"|לכבוד.+(חברת? הכנסת|חהכ)"+\
+		  u"|(לכבוד|בראשות).+(חברת? הכנסת|חהכ)"+\
 		u"|לכבוד.+ועד"+\
-		u"|מוגשת.+ועד"
+		u"|(לבקשת|מוגש).+ועד"+\
+		u"|דיו[נן]\s+משות"
 DATE_RE=u"(מסמך\s+זה).+(הוכן|מוגש|נכתב).+(דיו[ןנ]|ישיב|פגיש).+(ינואר|פברואר|מרץ|מרס|מארס|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)"
 TOPIC_RE=u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
@@ -178,10 +179,10 @@ def find_committee_slugs(datadict):
 
 
 def main():
-#	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-#	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-#		json.dump(data,f)
-#		logger.info("saved data on documents as json in %s",LINKSFILE)
+	data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
+	with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+		json.dump(data,f)
+		logger.info("saved data on documents as json in %s",LINKSFILE)
 
 	# <-> short-circuit here to skip previous stages
 
