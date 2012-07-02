@@ -295,7 +295,7 @@ def main():
 
 	# dump the good matches to MATCHESFILE
 	with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
-		json.dump(matches, f)
+		json.dump(reduce(lambda x,y:x+y,matchdict.values()), f)
 		logger.info("saved matches as json in %s", MATCHESFILE)
 
 	# save data of orphan documents separately, for forensics.
