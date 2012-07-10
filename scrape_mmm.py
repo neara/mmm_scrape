@@ -170,7 +170,7 @@ def extract_docs_from_soup(s):
         sys.exit(1)
 
     data = zip(d_titles, d_links, d_date, d_author)
-    data = [{'title': d[0], 'url': d[1], 'date': d[2]} for d in data]
+    data = [{'title': d[0], 'url': d[1], 'date': d[2], 'authors':[d[3]]} for d in data]
     return data
 
 def scrape(url):
@@ -251,6 +251,15 @@ def main():
     keys = [x['url'] for x in data] + datadict.keys()
     cnt = Counter(keys)
     dupes = filter(lambda x: x[1] > 2, cnt.iteritems())
+
+    # since duplication squashes some rows, join the authors into
+    # a single list in the output file
+
+    # each entry has an authors key which initially hods a singleton list of authors
+    # for dupes, we coalesce these into a single list with multiple entries
+    # nice and consistent.
+    for key in dict(dupes).keys():
+        datadict[key]['authors']= reduce(lambda x,y:x+y,[x['authors'] for x in data if x['url'] == key])
 
     logging.info("%d documents have dupes, for a total of %d duplicates" % (len(dupes), sum([x[1] - 2 for x in dupes])))
 
