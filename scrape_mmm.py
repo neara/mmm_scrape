@@ -270,12 +270,13 @@ def main():
         basename = d['url'].split("/")[-1]
 
         fullpath = os.path.join(DATADIR, basename)
-        if not os.path.exists(fullpath):
+        fulltxtpath = os.path.join(DATADIR, basename.split('.')[0] + ".txt")
+        if not os.path.exists(fulltxtpath) and not os.path.exists(fullpath):
             logger.info("Retrieving %s into %s" % (d['url'], DATADIR))
             with open(fullpath, "wb") as f:
                 f.write(urllib.urlopen(d['url']).read())
                 pass
-        fulltxtpath = os.path.join(DATADIR, basename.split('.')[0] + ".txt")
+
         if not os.path.exists(fulltxtpath):
             cmd = "pdftotext -f 1 -l 5 %s -" % fullpath
             logger.info("converting %s to text" % fullpath)
