@@ -6,7 +6,7 @@
 # identify the identities (mks, commitees) referenced as the solicitor of the report.
 #
 # deps: runs on linux, pdftotext must be installed, and the python packages bs4
-#       and fuzzywuzzy (https://github.com/seatgeek/fuzzywuzzy)
+#       and fuzzywuzzy  (https://github.com/seatgeek/fuzzywuzzy), pyyaml
 #
 # dumps out 3 files:
 # - the document meta data scraped from the webpage goes in LINKSFILE
@@ -50,33 +50,36 @@ from fuzzywuzzy import fuzz
 import logging
 import subprocess
 from jinja2 import Template
+import yaml
 
-#def printd(i):
-#    with codecs.open("no_match.json") as f:
-#        nm=json.load(f)
-#    print i['url'].split("/")[-1]
-#    for c in nm[i]['candidates']:
-#        print c
+
 from utils import merge_lines_g
 
-COMMITEEJSONFILE = "commitees.json"
-MKSJONFILE = "mks.json"
-IDENTITIESJSONFILE = "identities.json"
-DATADIR = './data/'
-SCORE_THRESHOLD = 90
-LINKSFILE = "mmm.json"
-MATCHESFILE = "matches.json"
-CSVFILE = "counts.csv"
-COMMITEE_ID_BASE = 10000 # all ids  higher then this in identities.json identify commitees , not persons
-NOMATCHESFILE = "no_match.json"
-MATCHES_TEMPLATE_FILE = "matches_tmpl.html"
-NO_MATCHES_TEMPLATE_FILE = "no_matches_tmpl.html"
-MATCHES_HTML_FILE = "matches.html"
-NO_MATCHES_HTML_FILE = "no_matches.html"
-DATE_TXT_FILE = "dates.txt"
-TOPIC_TXT_FILE = "topics.txt"
 
-#MAGIC_RE=u"((מסמך|מכתב|דוח)\s+זה)"+\
+BASE_DIR=os.path.dirname(__file__)
+REPORTS_DIR= os.path.abspath(os.path.join(BASE_DIR,"reports"))
+DATA_OUTPUT_DIR= os.path.abspath(os.path.join(BASE_DIR,"output_data"))
+TEMPLATE_DIR= os.path.abspath(os.path.join(BASE_DIR,"templates"))
+
+COMMITEEJSONFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"commitees.json"))
+IDENTITIESYAMLFILE = os.path.abspath(os.path.join(BASE_DIR,"identities.yaml"))
+DATADIR = os.path.abspath(os.path.join(BASE_DIR,'data/'))
+
+LINKSFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"mmm.json"))
+MATCHESFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"matches.json"))
+CSVFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"counts.csv"))
+
+NOMATCHESFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"no_match.json"))
+DATE_TXT_FILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"dates.txt"))
+TOPIC_TXT_FILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"topics.txt"))
+MATCHES_TEMPLATE_FILE = os.path.abspath(os.path.join(TEMPLATE_DIR,"matches_tmpl.html"))
+NO_MATCHES_TEMPLATE_FILE = os.path.abspath(os.path.join(TEMPLATE_DIR,"no_matches_tmpl.html"))
+MATCHES_HTML_FILE = os.path.abspath(os.path.join(REPORTS_DIR,"matches.html"))
+NO_MATCHES_HTML_FILE = os.path.abspath(os.path.join(REPORTS_DIR,"no_matches.html"))
+
+SCORE_THRESHOLD = 90
+COMMITEE_ID_BASE = 10000 # all ids  higher then this in identities.json identify commitees , not persons
+
 MAGIC_RE = u"((מסמך)\s+זה)" +\
            u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))" +\
            u"|((לקראת|עקבות)\s+(דיו[נן]|פגישה|ישיבה))" +\
@@ -89,7 +92,6 @@ TOPIC_RE = u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
-#START_DATE="24/02/2012"
 START_DATE = "24/02/2009"
 #START_DATE=None
 
@@ -101,15 +103,15 @@ logging.basicConfig(level=logging.INFO,
 )
 logger = logging.getLogger("mmm-scrape")
 
-# IDENTITIESJSONFILE should contain mappings from names
+# IDENTITIESYAMLFILE should contain mappings from names
 # to ids (the included file maps names to mk  ids as they appear on oknesset.org)
 #
 # can't hide the global inside a class
 # because multiprocessing.Map chokes when given a method
 # instead of a function
 
-with open(IDENTITIESJSONFILE, "rb") as jsonfile:
-    identities = json.load(jsonfile)
+with open(IDENTITIESYAMLFILE, "rb") as f:
+    identities = list(yaml.load(f).iteritems())
 
 def get_doc_to_commitee_assoc():
     """
@@ -342,7 +344,7 @@ def main():
     # so we can seperate the matches into types
     mksMatchesCnt = len([x for x in matchdict.values() if int(x[0]['id']) < COMMITEE_ID_BASE])
     commMatchesCnt = len(matchdict) - mksMatchesCnt
-    logger.info("Located %d unique matches  with score > %d (%d: mks, %d: committee) " %\
+    logger.info("Located %d unique matches with score > %d (%d: mks, %d: committee) " %\
                 (len(matchdict), SCORE_THRESHOLD, mksMatchesCnt, commMatchesCnt))
 
 
@@ -352,7 +354,7 @@ def main():
     # dump the good matches to MATCHESFILE
 
     with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
-        json.dump(reduce(lambda x,y:x+y,matchdict.values()), f)
+        json.dump(reduce(lambda x,y:x+y,matchdict.values()), f,indent=2)
         logger.info("saved matches as json in %s", MATCHESFILE)
 
     # save data of orphan documents separately, for forensics.
@@ -362,7 +364,7 @@ def main():
         not_matched[i].update({'docid': get_base_name(v['url'])})
 
     with codecs.open(NOMATCHESFILE, "wb", encoding='utf-8') as f:
-        json.dump(not_matched, f)
+        json.dump(not_matched, f,indent=2)
         logger.info("saved details of documents with no matches as json in %s", NOMATCHESFILE)
 
     # dump out a summary html file of matches for review
@@ -395,7 +397,7 @@ def main():
         logger.info("dumping out names of files with probable session topics to %s", TOPIC_TXT_FILE)
         for (k, v) in topicdict.iteritems():
             for x in v['candidates']:
-                f.write("%s\t%s" % (get_base_na + me(k), x) + "\n")
+                f.write("%s\t%s" % (get_base_name(k), x) + "\n")
 
     # <-> short-circuit here to skip previous stages
 
@@ -405,16 +407,11 @@ def main():
 
     createRankings(matches)
 
-
     logger.info("saved rankings in %s", CSVFILE)
     logger.info("Cheers.")
 
 
 if __name__ == "__main__":
-    #get_doc_to_commitee_assoc(): # some commitees are not included in http://www.knesset.gov.il/mmm/heb/MMM_Committee_Search.asp
-    # don't use
+    #get_doc_to_commitee_assoc(): # some commitees are not included in
+    # http://www.knesset.gov.il/mmm/heb/MMM_Committee_Search.asp, so - we won't use this
     main()
-
-# are the same file
-#http://knesset.gov.il/mmm/data/pdf/m02526.pdf
-#http://knesset.gov.il/mmm/data/pdf/m02526.pdf
