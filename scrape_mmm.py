@@ -46,14 +46,13 @@ from bs4 import BeautifulSoup as bs4
 import re
 import multiprocessing
 from collections import Counter
+from extract_session_dates import *
 from fuzzywuzzy import fuzz
 import logging
 import subprocess
 from jinja2 import Template
 import yaml
 
-
-from utils import merge_lines_g
 
 
 BASE_DIR=os.path.dirname(__file__)
@@ -92,8 +91,8 @@ TOPIC_RE = u"(לקראת\s+דיון\s+בוו?עד).+(בנושא|כותרתה)"
 
 # for shorter runtime, if we only care about documents published since start of k18
 # dd/mm/YYYY
-START_DATE = "24/02/2009"
-#START_DATE=None
+#START_DATE = "24/02/2009"
+START_DATE=None
 
 logging.basicConfig(level=logging.INFO,
     format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
@@ -112,6 +111,21 @@ logger = logging.getLogger("mmm-scrape")
 
 with open(IDENTITIESYAMLFILE, "rb") as f:
     identities = list(yaml.load(f).iteritems())
+
+def reverse_nums(line):
+    text=line
+    for m in re.finditer("\d+",line):
+        s=m.start()
+        e=m.end()
+        rev="".join(reversed(list(text[m.start():m.end()])))
+        text=text[0:s]+rev+text[e:]
+
+    return text
+
+
+def extract_commitee_and_date():
+    ls=codecs.open("dates.txt",encoding="utf-8").readlines()
+    ls=[x for x in ls if re.search(u"(לקראת|עקבות|מוגש|הוכן|נכתב).*(ישיב|דיון|פגיש)",x)>=0]
 
 def get_doc_to_commitee_assoc():
     """
@@ -235,7 +249,7 @@ def main():
 
     data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
     with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
-        json.dump(data,f)
+        json.dump(data,f,indent=2)
         logger.info("saved data on documents as json in %s",LINKSFILE)
 
     # <-> short-circuit here to skip previous stages
@@ -351,11 +365,9 @@ def main():
     ##################################
     # save out the various output files
 
-    # dump the good matches to MATCHESFILE
 
-    with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
-        json.dump(reduce(lambda x,y:x+y,matchdict.values()), f,indent=2)
-        logger.info("saved matches as json in %s", MATCHESFILE)
+    matches=reduce(lambda x,y:x+y,matchdict.values())
+    matchesDict={x['docid']: x for x in matches}
 
     # save data of orphan documents separately, for forensics.
     not_matched = {x['url'] for x in datadict.values()}.difference({x['url'] for x in matches})
@@ -385,19 +397,40 @@ def main():
         s = t.render({'objs': sorted(not_matched, key=lambda x: x['url'])})
         f.write(s)
 
-    # dump out candidates for committee meeting date
-    with codecs.open(DATE_TXT_FILE, "wb", encoding='utf-8') as f:
-        logger.info("dumping out names of files with probable session dates to %s", DATE_TXT_FILE)
-        for (k, v) in datedict.iteritems():
-            for x in v['candidates']:
-                f.write("%s\t%s" % (get_base_name(k), x) + "\n")
-
     # dump out candidates for committee meeting topic
     with codecs.open(TOPIC_TXT_FILE, "wb", encoding='utf-8') as f:
         logger.info("dumping out names of files with probable session topics to %s", TOPIC_TXT_FILE)
         for (k, v) in topicdict.iteritems():
             for x in v['candidates']:
                 f.write("%s\t%s" % (get_base_name(k), x) + "\n")
+
+    # dump out candidates for committee meeting date
+    with codecs.open(DATE_TXT_FILE, "wb", encoding='utf-8') as f:
+        logger.info("dumping out names of files with probable session dates to %s", DATE_TXT_FILE)
+        cnt =0
+        for (k, v) in datedict.iteritems():
+            for line in v['candidates']:
+                # seems numbers are reversed by the text extraction process
+                # it guess it's a RTL thing, so fix that
+                line=reverse_nums(line)
+
+                # munge and contort to extract a valid date
+                d=process_line(get_base_name(k),line)
+                if d and matchesDict.get(d['docid']):
+                    cnt+=1
+                    matchesDict[d['docid']]['comm_session_date'] = d['date'].strftime("%d/%m/%Y")
+
+                f.write("%s\t%s" % (get_base_name(k),line) + "\n")
+
+    logger.info("updated %d documents with a committee session date" % cnt)
+    # use the updated dict containing comm_session_date
+    # for matches
+    matches=matchesDict.values()
+
+    # dump the good matches to MATCHESFILE
+    with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
+        json.dump(matches, f,indent=2)
+        logger.info("saved matches as json in %s", MATCHESFILE)
 
     # <-> short-circuit here to skip previous stages
 
