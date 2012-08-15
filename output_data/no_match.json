@@ -943,16 +943,6 @@
     ]
   }, 
   {
-    "date": "8/8/2012", 
-    "candidates": [], 
-    "title": "\u05d4\u05de\u05d7\u05d0\u05d4 \u05d4\u05d7\u05d1\u05e8\u05ea\u05d9\u05ea \u05d5\u05d4\u05e8\u05e9\u05ea\u05d5\u05ea \u05d4\u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea", 
-    "url": "http://kness5et.gov.il/mmm/data/pdf/m03096.pdf", 
-    "docid": "m03096", 
-    "authors": [
-      "\u05d8\u05dc \u05e4\u05d1\u05dc"
-    ]
-  }, 
-  {
     "date": "23/8/2003", 
     "candidates": [
       "32 \u05d1\u05d0\u05d5\u05d2\u05d5\u05e1\u05d8 5002 \u05dc\u05db\u05d1\u05d5\u05d3 \u05d7\u05d4\u05db \u05d9\u05d5\u05e8\u05d9 \u05e9\u05d8\u05e8\u05df", 
@@ -4703,6 +4693,16 @@
     "docid": "m02980", 
     "authors": [
       "\u05d0\u05ea\u05d9 \u05d5\u05d9\u05d9\u05e1\u05d1\u05dc\u05d0\u05d9"
+    ]
+  }, 
+  {
+    "date": "8/8/2012", 
+    "candidates": [], 
+    "title": "\u05d4\u05de\u05d7\u05d0\u05d4 \u05d4\u05d7\u05d1\u05e8\u05ea\u05d9\u05ea \u05d5\u05d4\u05e8\u05e9\u05ea\u05d5\u05ea \u05d4\u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea", 
+    "url": "http://knesset.gov.il/mmm/data/pdf/m03096.pdf", 
+    "docid": "m03096", 
+    "authors": [
+      "\u05d8\u05dc \u05e4\u05d1\u05dc"
     ]
   }, 
   {
