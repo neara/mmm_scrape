@@ -53,10 +53,8 @@ def extract_commitee_and_date():
 def reverse_nums(line):
     text=line
     for m in re.finditer("\d+",line):
-        s=m.start()
-        e=m.end()
-        rev="".join(reversed(list(text[m.start():m.end()])))
-        text=text[0:s]+rev+text[e:]
+        match=m.group(0)
+        text= reversed(list(match)).join(text.split(match))
 
     return text
 
