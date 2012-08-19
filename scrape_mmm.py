@@ -12,7 +12,7 @@
 # - the document meta data scraped from the webpage goes in LINKSFILE
 # - the metadata for documents which matched with a score > SCORE_THRESHOLD
 #   goes in MATCHESFILE
-# - a count of docments per mk is dumped in csv form into CSVFILE
+# - a count of docments per mk is dumped in csv form into COUNTS_CSVFILE
 #
 # the documents go back to 2000, but hte identities.json file only holds
 # mks from the 18th knesset right now.
@@ -52,29 +52,8 @@ import logging
 import subprocess
 from jinja2 import Template
 import yaml
+import settings
 
-
-
-BASE_DIR=os.path.dirname(__file__)
-REPORTS_DIR= os.path.abspath(os.path.join(BASE_DIR,"reports"))
-DATA_OUTPUT_DIR= os.path.abspath(os.path.join(BASE_DIR,"output_data"))
-TEMPLATE_DIR= os.path.abspath(os.path.join(BASE_DIR,"templates"))
-
-COMMITEEJSONFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"commitees.json"))
-IDENTITIESYAMLFILE = os.path.abspath(os.path.join(BASE_DIR,"identities.yaml"))
-DATADIR = os.path.abspath(os.path.join(BASE_DIR,'data/'))
-
-LINKSFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"mmm.json"))
-MATCHESFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"matches.json"))
-CSVFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"counts.csv"))
-
-NOMATCHESFILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"no_match.json"))
-DATE_TXT_FILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"dates.txt"))
-TOPIC_TXT_FILE = os.path.abspath(os.path.join(DATA_OUTPUT_DIR,"topics.txt"))
-MATCHES_TEMPLATE_FILE = os.path.abspath(os.path.join(TEMPLATE_DIR,"matches_tmpl.html"))
-NO_MATCHES_TEMPLATE_FILE = os.path.abspath(os.path.join(TEMPLATE_DIR,"no_matches_tmpl.html"))
-MATCHES_HTML_FILE = os.path.abspath(os.path.join(REPORTS_DIR,"matches.html"))
-NO_MATCHES_HTML_FILE = os.path.abspath(os.path.join(REPORTS_DIR,"no_matches.html"))
 
 SCORE_THRESHOLD = 90
 COMMITEE_ID_BASE = 10000 # all ids  higher then this in identities.json identify commitees , not persons
@@ -109,7 +88,7 @@ logger = logging.getLogger("mmm-scrape")
 # because multiprocessing.Map chokes when given a method
 # instead of a function
 
-with open(IDENTITIESYAMLFILE, "rb") as f:
+with open(settings.IDENTITIESYAMLFILE, "rb") as f:
     identities = list(yaml.load(f).iteritems())
 
 def reverse_nums(line):
@@ -231,7 +210,7 @@ def createRankings(matches):
     cnt.sort(key=lambda x: x[1])
 
     # output an excel-compatible CSV of ranking
-    with codecs.open(CSVFILE, "wb", encoding='utf-16-le') as f:
+    with codecs.open(settings.COUNTS_CSVFILE, "wb", encoding='utf-16-le') as f:
         for (name, count) in cnt:
             f.write(u"%s\t%d\n" % (name, count))
 
@@ -245,17 +224,19 @@ def sanitize_lines(lines):
     lines = [re.sub(u"\s+", " ", x) for x in lines]
 
     return lines
+
+
 def main():
 
     data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
-    with codecs.open(LINKSFILE,"wb",encoding='utf-8') as f:
+    with codecs.open(settings.LINKSFILE,"wb",encoding='utf-8') as f:
         json.dump(data,f,indent=2)
-        logger.info("saved data on documents as json in %s",LINKSFILE)
+        logger.info("saved data on documents as json in %s",settings.LINKSFILE)
 
     # <-> short-circuit here to skip previous stages
 
     # load back the data
-    with codecs.open(LINKSFILE, encoding='utf-8') as f:
+    with codecs.open(settings.LINKSFILE, encoding='utf-8') as f:
         data = json.load(f)
 
     # convert to dict keyed by URL
@@ -294,10 +275,10 @@ def main():
     for (k, d) in sorted(datadict.iteritems()):
         basename = d['url'].split("/")[-1]
 
-        fullpath = os.path.join(DATADIR, basename)
-        fulltxtpath = os.path.join(DATADIR, basename.split('.')[0] + ".txt")
+        fullpath = os.path.join(settings.DATADIR, basename)
+        fulltxtpath = os.path.join(settings.DATADIR, basename.split('.')[0] + ".txt")
         if not os.path.exists(fulltxtpath) and not os.path.exists(fullpath):
-            logger.info("Retrieving %s into %s" % (d['url'], DATADIR))
+            logger.info("Retrieving %s into %s" % (d['url'], settings.DATADIR))
             with open(fullpath, "wb") as f:
                 f.write(urllib.urlopen(d['url']).read())
                 pass
@@ -375,14 +356,14 @@ def main():
     for (i, v) in enumerate(not_matched):
         not_matched[i].update({'docid': get_base_name(v['url'])})
 
-    with codecs.open(NOMATCHESFILE, "wb", encoding='utf-8') as f:
+    with codecs.open(settings.NOMATCHESFILE, "wb", encoding='utf-8') as f:
         json.dump(not_matched, f,indent=2)
-        logger.info("saved details of documents with no matches as json in %s", NOMATCHESFILE)
+        logger.info("saved details of documents with no matches as json in %s", settings.NOMATCHESFILE)
 
     # dump out a summary html file of matches for review
-    with codecs.open(MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
-        t = Template(codecs.open(MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
-        logger.info("dumping out html report of matches to %s", MATCHES_HTML_FILE)
+    with codecs.open(settings.MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
+        t = Template(codecs.open(settings.MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
+        logger.info("dumping out html report of matches to %s", settings.MATCHES_HTML_FILE)
         # although multiplte lines may have matched the same entity,
         # and all matches are held in ht ematch entry.
         # there's also a lot of duplication due to  overlap between joined rows
@@ -391,22 +372,22 @@ def main():
         f.write(s)
 
     # dump out a summary html file of files which did not match. with links, for review
-    with codecs.open(NO_MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
-        t = Template(codecs.open(NO_MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
-        logger.info("dumping out html report of %d un-matched files to %s", len(not_matched), NO_MATCHES_HTML_FILE)
+    with codecs.open(settings.NO_MATCHES_HTML_FILE, "wb", encoding='utf-8') as f:
+        t = Template(codecs.open(settings.NO_MATCHES_TEMPLATE_FILE, encoding='utf-8').read())
+        logger.info("dumping out html report of %d un-matched files to %s", len(not_matched), settings.NO_MATCHES_HTML_FILE)
         s = t.render({'objs': sorted(not_matched, key=lambda x: x['url'])})
         f.write(s)
 
     # dump out candidates for committee meeting topic
-    with codecs.open(TOPIC_TXT_FILE, "wb", encoding='utf-8') as f:
-        logger.info("dumping out names of files with probable session topics to %s", TOPIC_TXT_FILE)
+    with codecs.open(settings.TOPIC_TXT_FILE, "wb", encoding='utf-8') as f:
+        logger.info("dumping out names of files with probable session topics to %s", settings.TOPIC_TXT_FILE)
         for (k, v) in topicdict.iteritems():
             for x in v['candidates']:
                 f.write("%s\t%s" % (get_base_name(k), x) + "\n")
 
     # dump out candidates for committee meeting date
-    with codecs.open(DATE_TXT_FILE, "wb", encoding='utf-8') as f:
-        logger.info("dumping out names of files with probable session dates to %s", DATE_TXT_FILE)
+    with codecs.open(settings.DATE_TXT_FILE, "wb", encoding='utf-8') as f:
+        logger.info("dumping out names of files with probable session dates to %s", settings.DATE_TXT_FILE)
         cnt =0
         for (k, v) in datedict.iteritems():
             for line in v['candidates']:
@@ -428,19 +409,19 @@ def main():
     matches=matchesDict.values()
 
     # dump the good matches to MATCHESFILE
-    with codecs.open(MATCHESFILE, "wb", encoding='utf-8') as f:
+    with codecs.open(settings.MATCHESFILE, "wb", encoding='utf-8') as f:
         json.dump(matches, f,indent=2)
-        logger.info("saved matches as json in %s", MATCHESFILE)
+        logger.info("saved matches as json in %s", settings.MATCHESFILE)
 
     # <-> short-circuit here to skip previous stages
 
     # load the matches back up
-    with codecs.open(MATCHESFILE, "r", encoding='utf-8') as f:
+    with codecs.open(settings.MATCHESFILE, "r", encoding='utf-8') as f:
         matches = json.load(f)
 
     createRankings(matches)
 
-    logger.info("saved rankings in %s", CSVFILE)
+    logger.info("saved rankings in %s", settings.COUNTS_CSVFILE)
     logger.info("Cheers.")
 
 
