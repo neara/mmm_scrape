@@ -29,7 +29,7 @@ def filter_keys(g,key_list=None):
 def write_tsv(data,ofname):
 
     with codecs.open(ofname,"wb") as f:
-        f.write("\xff\xfe")
+        f.write("\xff\xfe") # BOM, the right one I think
         for l in data:
             f.write(("\t".join(map(unicode,l))+"\n").encode('utf-16le'))
 

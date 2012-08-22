@@ -2,19 +2,19 @@
 # -*- coding: utf-8 -*-
 #
 # Best-effort scraper for mmm documents from http://knesset.gov.il/mmm/heb/MMM_Results.asp
-# retrieves all files to to local cache, converts them to text and crudely tries to
-# identify the identities (mks, commitees) referenced as the solicitor of the report.
+# retrieves all files to to local cache, converts them to text and tries to
+# identify the identities (mks, commitees) referenced as the solicitor for each report.
 #
 # deps: runs on linux, pdftotext must be installed, and the python packages bs4
 #       and fuzzywuzzy  (https://github.com/seatgeek/fuzzywuzzy), pyyaml
 #
-# dumps out 3 files:
+# dumps out several files into "output_data/:
 # - the document meta data scraped from the webpage goes in LINKSFILE
 # - the metadata for documents which matched with a score > SCORE_THRESHOLD
 #   goes in MATCHESFILE
 # - a count of docments per mk is dumped in csv form into COUNTS_CSVFILE
 #
-# the documents go back to 2000, but hte identities.json file only holds
+# the documents go back to 2000, but hte entity.yaml file only holds
 # mks from the 18th knesset right now.
 #
 # BSD.
@@ -56,7 +56,7 @@ import settings
 
 
 SCORE_THRESHOLD = 90
-COMMITEE_ID_BASE = 10000 # all ids  higher then this in identities.json identify commitees , not persons
+COMMITEE_ID_BASE = 10000 # all ids  higher then this in identities.json identify committees, not persons
 
 MAGIC_RE = u"((מסמך)\s+זה)" +\
            u"|((הוכן|מוגש|נכתב)\s+(עבור|לכבוד|לבקשת|לקראת|למען|בשביל))" +\
@@ -101,14 +101,9 @@ def reverse_nums(line):
 
     return text
 
-
-def extract_commitee_and_date():
-    ls=codecs.open("dates.txt",encoding="utf-8").readlines()
-    ls=[x for x in ls if re.search(u"(לקראת|עקבות|מוגש|הוכן|נכתב).*(ישיב|דיון|פגיש)",x)>=0]
-
 def get_doc_to_commitee_assoc():
     """
-    the knesset website tages documents by committees, scrape it
+    the knesset website tags documents by committees, scrape it
     only major committees appear, so this is not used to tag by committee
     """
     h=urllib.urlopen('http://www.knesset.gov.il/mmm/heb/MMM_Committee_Search.asp').read()
@@ -180,15 +175,6 @@ def scrape(url):
     return extract_docs_from_soup(s)
 
 
-
-def asciiDateToDate(x):
-    """
-    parse date of the form "dd/mm/YYYY"
-    """
-    datel = x.split("/")
-    datel.reverse()
-    return apply(datetime.date, map(int, datel))
-
 # hopefully, the first word in the name of the committee
 # is a unique identifier. This will rear it's ugly head someday
 def find_committee_slugs(datadict):
@@ -199,12 +185,13 @@ def find_committee_slugs(datadict):
             if m:
                 commitees.append(m.group(0))
 
-    logger.info("%d unique commitees found, %d total occurences", len(set(commitees)), len(commitees))
+    logger.info("%d unique committees found, %d total occurrences", len(set(commitees)), len(commitees))
     for k in sorted(set(commitees)):
-        logger.info("commitee: %s " % k)
+        logger.info("committee: %s " % k)
 
 def createRankings(matches):
-    # build a table which holds the number of documents associated with each name
+    """ build a table which holds the number of documents associated with each name"""
+
     logger.info("Preparing rankings")
     cnt = list(Counter([x['entityName'] for x in matches]).iteritems())
     cnt.sort(key=lambda x: x[1])
@@ -225,7 +212,6 @@ def sanitize_lines(lines):
 
     return lines
 
-
 def main():
 
     data=scrape("http://knesset.gov.il/mmm/heb/MMM_Results.asp")
@@ -243,8 +229,7 @@ def main():
     datadict = {d['url']: d for d in data[:]}
     #datadict={d['url']:d for d in data[:]  if d['url'].find("2252")>=0}
 
-    # each document appears once for each author
-    # deduplicate
+    # each document appears once for each author, so we need to distinct
     keys = [x['url'] for x in data] + datadict.keys()
     cnt = Counter(keys)
     dupes = filter(lambda x: x[1] > 2, cnt.iteritems())
@@ -345,7 +330,6 @@ def main():
 
     ##################################
     # save out the various output files
-
 
     matches=reduce(lambda x,y:x+y,matchdict.values())
     matchesDict={x['docid']: x for x in matches}
