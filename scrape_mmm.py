@@ -206,11 +206,11 @@ def main():
     matches = reduce(lambda x, y: x + y, matchdict.values())
     not_matched=findNotMatched(datadict,matches)
 
-    logger.info("saved details of documents with no matches as json in %s", settings.NOMATCHESFILE)
-    dump_json(not_matched,settings.NOMATCHESFILE)
-    dump_report(not_matched,settings.NO_MATCHES_HTML_FILE,settings.NO_MATCHES_TEMPLATE_FILE)
 
-    logger.info("dumping out html report of matches to %s", settings.MATCHES_HTML_FILE)
+    dump_json(not_matched,settings.NOMATCHESFILE)
+    logger.info("saved details of documents with no matches as json in %s", settings.NOMATCHESFILE)
+
+    dump_report(not_matched,settings.NO_MATCHES_HTML_FILE,settings.NO_MATCHES_TEMPLATE_FILE)
     dump_report(matches,settings.MATCHES_HTML_FILE,settings.MATCHES_TEMPLATE_FILE)
 
     cnt=0

@@ -25,10 +25,19 @@
 from bs4 import BeautifulSoup as bs4
 
 import sys,os,re,json,codecs
-import cProfile
+
+import logging
 import urllib
-from scrape_mmm import logger
 import settings
+import utils
+
+logging.basicConfig(level=logging.INFO,
+    format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M:%S',
+    #		    filename='/tmp/myapp.log',
+    #		    filemode='w'
+)
+logger = logging.getLogger("mmm-scrape")
 
 def main():
     pass

@@ -26,18 +26,19 @@
 import subprocess
 
 import sys,os,re,json,codecs
-import cProfile
+import logging
 import urllib
-from scrape_mmm import logger
+
 import settings
 import utils
 
-def main():
-    pass
-    
-if __name__=='__main__':
-#	cProfile.run('main()','out.prof')
-	main()
+logging.basicConfig(level=logging.INFO,
+    format='%(asctime)s %(name)-4s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M:%S',
+    #		    filename='/tmp/myapp.log',
+    #		    filemode='w'
+)
+logger = logging.getLogger("mmm-scrape")
 
 class DocumentCache(object):
     def __init__(self, datadict):
