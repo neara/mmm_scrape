@@ -50,13 +50,7 @@ def extract_commitee_and_date():
     ls=codecs.open("dates.txt",encoding="utf-8").readlines()
     ls=[x for x in ls if re.search(u"(לקראת|עקבות|מוגש|הוכן|נכתב).*(ישיב|דיון|פגיש)",x)>=0]
 
-def reverse_nums(line):
-    text=line
-    for m in re.finditer("\d+",line):
-        match=m.group(0)
-        text= reversed(list(match)).join(text.split(match))
 
-    return text
 
 def select_lines(ls):
     return [x for x in ls if re.search(u"(לקראת|עקבות|מוגש|הוכן|נכתב).*(ישיב|דיון|פגיש)",x)>=0]
@@ -213,7 +207,7 @@ def date_by_docid_override(docid):
     else:
         return None
 
-def process_line(docid,line):
+def extract_date(docid,line):
     mc=re.search(u"(\d+)\s*(\w+)\s*(\d{4})",line,flags=re.U)
     if mc:
 
@@ -230,21 +224,21 @@ def process_line(docid,line):
         else:
             return None
 
-def main():
-    if os.path.isfile(DATE_TXT_FILE):
-        ls=codecs.open(DATE_TXT_FILE,encoding='utf-8').readlines()
-    else:
-        print "Couldn't find %s" % DATE_TXT_FILE
-        sys.exit(1)
-
-    ls=select_lines(ls)
-
-    for line in ls:
-        docid=line.split()[0]
-        d=process_line(docid,line)
-        if d:
-            print "%s: %s" % (d['docid'],d['date'])
-    pass
-
-if __name__ == '__main__':
-    main()
+#def main():
+#    if os.path.isfile(settings.DATE_TXT_FILE):
+#        ls=codecs.open(settings.DATE_TXT_FILE,encoding='utf-8').readlines()
+#    else:
+#        print "Couldn't find %s" % settings.DATE_TXT_FILE
+#        sys.exit(1)
+#
+#    ls=select_lines(ls)
+#
+#    for line in ls:
+#        docid=line.split()[0]
+#        d=process_line(docid,line)
+#        if d:
+#            print "%s: %s" % (d['docid'],d['date'])
+#    pass
+#
+#if __name__ == '__main__':
+#    main()

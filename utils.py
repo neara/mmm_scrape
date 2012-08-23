@@ -8,40 +8,51 @@ import re
 
 # quite LISPy this...
 import datetime
+import settings
 
-def merge_lines(fname, n=2, sep=" ", func=str.strip, pats=[]):
+def mergeLines(lines, n=3):
     """
-     same as merge_lines_g, but not lazy
-     """
-
-    return [x for g in merge_lines_g(fname, n, sep, func, pats)]
-
-# quite LISPy this...
-def merge_lines_g(fname, n=2, sep=" ", func=str.strip, pats=[]):
+    takes lines in groups of n and process them as a single block of text
+    this handles cases where names are split over lines, and some
+    other corner cases
     """
-     takes a file name and return a generator which returns string constructed
-     by taking each successive n lines in the file, applying func  to each lines
-     (strip by default), and then joining them using sep. all joined using sep.
-     when reaching the end of the files, the last lines are joined
-     with "" instead of the "missing" n-1 lines pass the end.
-     """
+    for i in range(min(settings.NUMLINES_TO_PROCESS, len(lines) - n)):
+        yield " ".join([lines[i + j].strip() for j in range(n)])
 
-    f = open(fname)
-    lines = []
 
-    for i in range(n):
-        lines.append(f.readline())
-
-    while (lines[0] != ''):
-        l = sep.join(map(func, lines))
-        l = l.decode('utf-8')
-        for (s_pat, rep_pat) in pats:
-            l = re.sub(s_pat, rep_pat, l)
-
-        lines = lines[1:]
-        lines.append(f.readline())
-
-        yield l
+#def merge_lines(fname, n=2, sep=" ", func=str.strip, pats=[]):
+#    """
+#     same as merge_lines_g, but not lazy
+#     """
+#
+#    return [x for g in merge_lines_g(fname, n, sep, func, pats)]
+#
+## quite LISPy this...
+#def merge_lines_g(fname, n=2, sep=" ", func=str.strip, pats=[]):
+#    """
+#     takes a file name and return a generator which returns string constructed
+#     by taking each successive n lines in the file, applying func  to each lines
+#     (strip by default), and then joining them using sep. all joined using sep.
+#     when reaching the end of the files, the last lines are joined
+#     with "" instead of the "missing" n-1 lines pass the end.
+#     """
+#
+#    f = open(fname)
+#    lines = []
+#
+#    for i in range(n):
+#        lines.append(f.readline())
+#
+#    while (lines[0] != ''):
+#        l = sep.join(map(func, lines))
+#        l = l.decode('utf-8')
+#        for (s_pat, rep_pat) in pats:
+#            l = re.sub(s_pat, rep_pat, l)
+#
+#        lines = lines[1:]
+#        lines.append(f.readline())
+#
+#        yield l
 
 #g=merge_lines_g("../crowd-source/app/static/docs/all.txt",n=3,
 #	#g=merge_lines_g("1.txt",n=3,
@@ -101,3 +112,15 @@ def asciiDateToDate(x):
     datel.reverse()
     return apply(datetime.date, map(int, datel))
 
+def get_base_name(url):
+    return url.split("/")[-1].split(".")[0]
+
+def reverse_nums(line):
+    text=line
+    for m in re.finditer("\d+",line):
+        s=m.start()
+        e=m.end()
+        rev="".join(reversed(list(text[m.start():m.end()])))
+        text=text[0:s]+rev+text[e:]
+
+    return text
