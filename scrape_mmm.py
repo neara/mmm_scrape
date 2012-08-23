@@ -206,7 +206,6 @@ def main():
     matches = reduce(lambda x, y: x + y, matchdict.values())
     not_matched=findNotMatched(datadict,matches)
 
-
     dump_json(not_matched,settings.NOMATCHESFILE)
     logger.info("saved details of documents with no matches as json in %s", settings.NOMATCHESFILE)
 
@@ -233,8 +232,9 @@ def main():
     logger.info("saved matches as json in %s", settings.MATCHESFILE)
     dump_json(matches,settings.MATCHESFILE)
 
+    logger.info("saved matches as csv in %s", settings.MATCHES_CSV_FILE)
     # saves matches as csv file
-    g=filter_keys(data_to_gen(codecs.open(settings.MATCHESFILE)))
+    g=filter_keys(data_to_gen(settings.MATCHESFILE))
     write_tsv(g,settings.MATCHES_CSV_FILE)
 
     # <-> short-circuit here to skip previous stages

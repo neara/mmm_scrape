@@ -27,7 +27,7 @@ import sys, os, re, json, codecs
 import settings
 
 def data_to_gen(fname):
-    s=json.load(fname)
+    s=json.load(codecs.open(fname))
 
     for x in s:
         yield x
