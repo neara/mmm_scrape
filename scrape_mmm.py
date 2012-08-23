@@ -48,6 +48,7 @@ from collections import Counter
 from DocumentCache import DocumentCache
 from LinksProcessor import LinksProcessor
 from MetaDataRetriever import MetaDataRetriever
+from dump_matches_to_tsv import write_tsv, data_to_gen, filter_keys
 from extract_session_dates import *
 from fuzzywuzzy import fuzz
 import logging
@@ -231,6 +232,10 @@ def main():
 
     logger.info("saved matches as json in %s", settings.MATCHESFILE)
     dump_json(matches,settings.MATCHESFILE)
+
+    # saves matches as csv file
+    g=filter_keys(data_to_gen(codecs.open(settings.MATCHESFILE)))
+    write_tsv(g,settings.MATCHES_CSV_FILE)
 
     # <-> short-circuit here to skip previous stages
 
